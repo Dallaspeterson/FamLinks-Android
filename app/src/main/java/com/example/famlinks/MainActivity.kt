@@ -22,7 +22,10 @@ import com.example.famlinks.ui.gallery.GalleryScreen
 import com.example.famlinks.ui.fam.FamScreen
 import com.example.famlinks.ui.famlinks.FamLinksScreen
 import com.example.famlinks.ui.portals.PortalsScreen
+import com.example.famlinks.ui.auth.WelcomeScreen
+import com.example.famlinks.ui.auth.SignUpScreen
 import com.example.famlinks.ui.theme.FamLinksTheme
+import com.example.famlinks.data.local.GuestManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
@@ -58,63 +61,99 @@ class MainActivity : ComponentActivity() {
         // UI
         setContent {
             FamLinksTheme {
+                val context = this
+                val guestManager = GuestManager(context)
+                val isUserSignedIn = try {
+                    Amplify.Auth.currentUser != null
+                } catch (e: Exception) {
+                    false
+                }
+
+                var showWelcome by remember {
+                    mutableStateOf(!isUserSignedIn && !guestManager.isGuest())
+                }
+
+                var showSignUp by remember { mutableStateOf(false) }
                 var selectedTab by remember { mutableStateOf(2) } // Start on Camera
 
-                Scaffold(
-                    topBar = {
-                        TopAppBar(
-                            title = { Text("FamLinks") },
-                            actions = {
-                                IconButton(onClick = { /* Top-right action */ }) {
-                                    Icon(Icons.Default.Person, contentDescription = "Profile")
-                                }
+                when {
+                    showWelcome -> {
+                        WelcomeScreen(
+                            onSignUpClick = {
+                                showWelcome = false
+                                showSignUp = true
+                            },
+                            onContinueAsGuest = {
+                                guestManager.generateAndSaveGuestUUID() // Safe to call again, does nothing if already generated
+                                showWelcome = false
                             }
                         )
-                    },
-                    bottomBar = {
-                        NavigationBar {
-                            NavigationBarItem(
-                                selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
-                                icon = { Icon(Icons.Default.Image, contentDescription = "Gallery") },
-                                label = { Text("Gallery") }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
-                                icon = { Icon(Icons.Default.Inbox, contentDescription = "FamLinks") },
-                                label = { Text("FamLinks") }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 2,
-                                onClick = { selectedTab = 2 },
-                                icon = { Icon(Icons.Default.CameraAlt, contentDescription = "Camera") },
-                                label = { Text("Camera") }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 3,
-                                onClick = { selectedTab = 3 },
-                                icon = { Icon(Icons.Default.Group, contentDescription = "Fam") },
-                                label = { Text("Fam") }
-                            )
-                            NavigationBarItem(
-                                selected = selectedTab == 4,
-                                onClick = { selectedTab = 4 },
-                                icon = { Icon(Icons.Default.Event, contentDescription = "Portals") },
-                                label = { Text("Portals") }
-                            )
-                        }
                     }
-                ) { padding ->
-                    Box(modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)) {
-                        when (selectedTab) {
-                            0 -> GalleryScreen()
-                            1 -> FamLinksScreen()
-                            2 -> CameraScreen()
-                            3 -> FamScreen()
-                            4 -> PortalsScreen()
+                    showSignUp -> {
+                        SignUpScreen(
+                            onSignUpComplete = {
+                                showSignUp = false
+                            }
+                        )
+                    }
+                    else -> {
+                        Scaffold(
+                            topBar = {
+                                TopAppBar(
+                                    title = { Text("FamLinks") },
+                                    actions = {
+                                        IconButton(onClick = { /* Profile settings */ }) {
+                                            Icon(Icons.Default.Person, contentDescription = "Profile")
+                                        }
+                                    }
+                                )
+                            },
+                            bottomBar = {
+                                NavigationBar {
+                                    NavigationBarItem(
+                                        selected = selectedTab == 0,
+                                        onClick = { selectedTab = 0 },
+                                        icon = { Icon(Icons.Default.Image, contentDescription = "Gallery") },
+                                        label = { Text("Gallery") }
+                                    )
+                                    NavigationBarItem(
+                                        selected = selectedTab == 1,
+                                        onClick = { selectedTab = 1 },
+                                        icon = { Icon(Icons.Default.Inbox, contentDescription = "FamLinks") },
+                                        label = { Text("FamLinks") }
+                                    )
+                                    NavigationBarItem(
+                                        selected = selectedTab == 2,
+                                        onClick = { selectedTab = 2 },
+                                        icon = { Icon(Icons.Default.CameraAlt, contentDescription = "Camera") },
+                                        label = { Text("Camera") }
+                                    )
+                                    NavigationBarItem(
+                                        selected = selectedTab == 3,
+                                        onClick = { selectedTab = 3 },
+                                        icon = { Icon(Icons.Default.Group, contentDescription = "Fam") },
+                                        label = { Text("Fam") }
+                                    )
+                                    NavigationBarItem(
+                                        selected = selectedTab == 4,
+                                        onClick = { selectedTab = 4 },
+                                        icon = { Icon(Icons.Default.Event, contentDescription = "Portals") },
+                                        label = { Text("Portals") }
+                                    )
+                                }
+                            }
+                        ) { padding ->
+                            Box(modifier = Modifier
+                                .fillMaxSize()
+                                .padding(padding)) {
+                                when (selectedTab) {
+                                    0 -> GalleryScreen()
+                                    1 -> FamLinksScreen()
+                                    2 -> CameraScreen()
+                                    3 -> FamScreen()
+                                    4 -> PortalsScreen()
+                                }
+                            }
                         }
                     }
                 }
@@ -122,5 +161,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-
