@@ -4,6 +4,7 @@ package com.example.famlinks
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -14,6 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.amplifyframework.auth.cognito.AWSCognitoAuthPlugin
+import com.amplifyframework.core.Amplify
 import com.example.famlinks.ui.camera.CameraScreen
 import com.example.famlinks.ui.gallery.GalleryScreen
 import com.example.famlinks.ui.fam.FamScreen
@@ -26,6 +29,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // AWS Amplify Initialization
+        try {
+            Amplify.addPlugin(AWSCognitoAuthPlugin())
+            Amplify.configure(applicationContext)
+            Log.i("FamLinks", "Amplify initialized successfully")
+        } catch (error: Exception) {
+            Log.e("FamLinks", "Failed to initialize Amplify", error)
+        }
+
+        // Permissions
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -42,6 +55,7 @@ class MainActivity : ComponentActivity() {
             )
         }
 
+        // UI
         setContent {
             FamLinksTheme {
                 var selectedTab by remember { mutableStateOf(2) } // Start on Camera
@@ -51,7 +65,7 @@ class MainActivity : ComponentActivity() {
                         TopAppBar(
                             title = { Text("FamLinks") },
                             actions = {
-                                IconButton(onClick = { /* Add top right actions here */ }) {
+                                IconButton(onClick = { /* Top-right action */ }) {
                                     Icon(Icons.Default.Person, contentDescription = "Profile")
                                 }
                             }
@@ -92,7 +106,9 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) { padding ->
-                    Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                    Box(modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)) {
                         when (selectedTab) {
                             0 -> GalleryScreen()
                             1 -> FamLinksScreen()
@@ -106,4 +122,5 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
 

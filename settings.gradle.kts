@@ -16,6 +16,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://dl.bintray.com/amplify/android") }     // <-- This one is needed
+        maven { url = uri("https://jcenter.bintray.com/") }
     }
 }
 
