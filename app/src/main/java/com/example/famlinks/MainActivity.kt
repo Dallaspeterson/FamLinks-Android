@@ -1,6 +1,7 @@
 // File: MainActivity.kt
 package com.example.famlinks
 
+import androidx.compose.ui.Modifier
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -11,9 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.famlinks.data.local.GuestManager
 import com.example.famlinks.ui.camera.CameraScreen
 import com.example.famlinks.ui.gallery.GalleryScreen
 import com.example.famlinks.ui.fam.FamScreen
@@ -22,18 +23,16 @@ import com.example.famlinks.ui.portals.PortalsScreen
 import com.example.famlinks.ui.auth.WelcomeScreen
 import com.example.famlinks.ui.auth.SignUpScreen
 import com.example.famlinks.ui.theme.FamLinksTheme
-import com.example.famlinks.data.local.GuestManager
-import com.example.famlinks.data.remote.s3.AwsS3Client
+import com.example.famlinks.util.GuestCredentialsProvider
 import com.example.famlinks.util.AppPreferences
+import com.example.famlinks.data.remote.s3.AwsS3Client
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        AwsS3Client.initialize(applicationContext) // ← 🔐 Required
 
-
-        // Request permissions
+        // Permissions
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), 0)
@@ -47,21 +46,22 @@ class MainActivity : ComponentActivity() {
             ), 1)
         }
 
-        // UI setup
         setContent {
             FamLinksTheme {
                 val context = this
-                val guestManager = remember { GuestManager(context) }
                 val showWelcome = remember { mutableStateOf(!AppPreferences.isGuestSelected(context)) }
                 var showSignUp by remember { mutableStateOf(false) }
                 var selectedTab by remember { mutableStateOf(2) }
-
                 var initialized by remember { mutableStateOf(false) }
                 var triggerInit by remember { mutableStateOf(false) }
+                val guestManager = remember { GuestManager(context) }
+
+                // Handle guest creation & S3 setup
 
                 LaunchedEffect(!showWelcome.value || triggerInit) {
                     if (!initialized && guestManager.isGuest()) {
-                        AwsS3Client.initialize(context)
+                        GuestCredentialsProvider.getCredentialsProvider(context) // suspend call
+                        AwsS3Client.initialize(context.applicationContext) // ✅ this initializes the S3 client
                         initialized = true
                     }
                 }
@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
                                 showSignUp = true
                             },
                             onContinueAsGuest = {
+                                guestManager.generateAndSaveGuestUUID() // ✅ Generate the ID first
                                 AppPreferences.markGuestSelected(context)
                                 showWelcome.value = false
                                 triggerInit = true
@@ -130,9 +131,11 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         ) { padding ->
-                            Box(modifier = Modifier
-                                .fillMaxSize()
-                                .padding(padding)) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(padding)
+                            ) {
                                 when (selectedTab) {
                                     0 -> GalleryScreen()
                                     1 -> FamLinksScreen()

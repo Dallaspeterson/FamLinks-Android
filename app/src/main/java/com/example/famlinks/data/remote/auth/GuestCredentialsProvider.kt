@@ -1,4 +1,3 @@
-// File: util/GuestCredentialsProvider.kt
 package com.example.famlinks.util
 
 import android.content.Context
@@ -9,6 +8,8 @@ import com.amazonaws.regions.Regions
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.amazonaws.services.s3.model.PutObjectRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 
 object GuestCredentialsProvider {
@@ -21,8 +22,8 @@ object GuestCredentialsProvider {
     var identityId: String? = null
         private set
 
-    fun getCredentialsProvider(context: Context): CognitoCachingCredentialsProvider {
-        val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    suspend fun getCredentialsProvider(context: Context): CognitoCachingCredentialsProvider = withContext(Dispatchers.IO) {
+            val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
         val provider = CognitoCachingCredentialsProvider(
             context,
@@ -30,28 +31,27 @@ object GuestCredentialsProvider {
             REGION
         )
 
-        identityId = provider.identityId.also {
-            Log.i("GuestCredentials", "✅ Got Identity ID: $it")
-            prefs.edit().putString(KEY_IDENTITY_ID, it).apply()
+            identityId = provider.identityId.also {
+                Log.i("GuestCredentials", "✅ Got Identity ID: $it")
+                prefs.edit().putString(KEY_IDENTITY_ID, it).apply()
+            }
+
+            try {
+                val s3 = AmazonS3Client(provider)
+                val folderKey = "users/$identityId/.keep"
+                val emptyStream = ByteArrayInputStream(ByteArray(0))
+                val metadata = ObjectMetadata().apply { contentLength = 0 }
+
+                val putRequest = PutObjectRequest(BUCKET_NAME, folderKey, emptyStream, metadata)
+                s3.putObject(putRequest)
+
+                Log.i("GuestCredentials", "📂 Ensured S3 folder exists: $folderKey")
+            } catch (e: Exception) {
+                Log.w("GuestCredentials", "⚠️ Failed to create .keep file", e)
+            }
+
+            return@withContext provider
         }
-
-        // Optional: ensure S3 folder exists with `.keep` file
-        try {
-            val s3 = AmazonS3Client(provider)
-            val folderKey = "users/$identityId/.keep"
-            val emptyStream = ByteArrayInputStream(ByteArray(0))
-            val metadata = ObjectMetadata().apply { contentLength = 0 }
-
-            val putRequest = PutObjectRequest(BUCKET_NAME, folderKey, emptyStream, metadata)
-            s3.putObject(putRequest)
-
-            Log.i("GuestCredentials", "📂 Ensured S3 folder exists: $folderKey")
-        } catch (e: Exception) {
-            Log.w("GuestCredentials", "⚠️ Failed to create .keep file", e)
-        }
-
-        return provider
-    }
 
     fun getIdentityId(context: Context): String? {
         if (identityId != null) return identityId
@@ -59,4 +59,3 @@ object GuestCredentialsProvider {
         return prefs.getString(KEY_IDENTITY_ID, null)
     }
 }
-
