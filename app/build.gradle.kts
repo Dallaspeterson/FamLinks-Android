@@ -95,8 +95,6 @@ dependencies {
     // Required for AWS XML parsing support on Android
     implementation("org.codehaus.woodstox:stax2-api:4.2.1")
     implementation("com.fasterxml.woodstox:woodstox-core:6.6.1")
-    implementation("com.fasterxml.woodstox:woodstox-core:6.5.1")
-
 
     // AWS SDK v2
     implementation(libs.aws.cognitoidentity)

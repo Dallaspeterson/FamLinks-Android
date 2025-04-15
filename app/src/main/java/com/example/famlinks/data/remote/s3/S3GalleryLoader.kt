@@ -1,13 +1,11 @@
 // File: data/remote/s3/S3GalleryLoader.kt
 package com.example.famlinks.data.remote.s3
 
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request
-import com.example.famlinks.data.remote.s3.AwsS3Client
+import java.time.Duration
 
 object S3GalleryLoader {
     suspend fun listPhotoUrls(): List<String> = withContext(Dispatchers.IO) {
@@ -16,20 +14,30 @@ object S3GalleryLoader {
         val identityId = AwsS3Client.getIdentityId() ?: return@withContext emptyList()
 
         try {
+            val prefix = "users/$identityId/"
+            Log.d("S3GalleryLoader", "Looking in prefix: $prefix")
+
             val request = ListObjectsV2Request.builder()
                 .bucket("famlinks-user-media")
-                .prefix("users/$identityId/")
+                .prefix(prefix)
                 .build()
 
             val result = s3.listObjectsV2(request)
 
+            Log.d("S3GalleryLoader", "Found ${result.contents().size} objects in S3")
+            for (obj in result.contents()) {
+                Log.d("S3GalleryLoader", "🧠 S3 Key: ${obj.key()}")
+            }
+
             result.contents()
                 .filter { it.key().endsWith(".jpg", true) }
-                .map {
-                    utils.getUrl { b ->
-                        b.bucket("famlinks-user-media").key(it.key())
+                .map { s3Object ->
+                    utils.getUrl {
+                        it.bucket("famlinks-user-media")
+                            .key(s3Object.key())
                     }.toExternalForm()
                 }
+
         } catch (e: Exception) {
             Log.e("S3GalleryLoader", "Failed to load gallery", e)
             emptyList()

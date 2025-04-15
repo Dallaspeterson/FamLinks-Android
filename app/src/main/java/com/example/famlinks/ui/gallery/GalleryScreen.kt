@@ -1,6 +1,7 @@
 // File: ui/gallery/GalleryScreen.kt
 package com.example.famlinks.ui.gallery
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -23,7 +24,9 @@ fun GalleryScreen() {
     var s3ImageUrls by remember { mutableStateOf(emptyList<String>()) }
 
     LaunchedEffect(Unit) {
-        s3ImageUrls = S3GalleryLoader.listPhotoUrls()
+        val urls = S3GalleryLoader.listPhotoUrls()
+        Log.d("GalleryScreen", "Loaded ${urls.size} image URLs")
+        s3ImageUrls = urls
     }
 
     Scaffold(
