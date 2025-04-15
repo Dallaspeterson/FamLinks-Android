@@ -5,18 +5,19 @@ import android.content.Context
 import android.content.SharedPreferences
 import java.util.UUID
 
-class GuestManager(context: Context) {
-
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences("famlinks_prefs", Context.MODE_PRIVATE)
+class GuestManager(private val context: Context) {
 
     companion object {
-        private const val KEY_GUEST_UUID = "guest_id"
-        private const val KEY_IS_GUEST = "is_guest"
+        private const val PREFS_NAME = "famlinks_prefs"
+        private const val KEY_GUEST_SELECTED = "guest_selected"
+        private const val KEY_GUEST_UUID = "guest_uuid"
     }
 
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
     fun isGuest(): Boolean {
-        return prefs.getBoolean(KEY_IS_GUEST, false)
+        return prefs.getBoolean(KEY_GUEST_SELECTED, false) && prefs.getString(KEY_GUEST_UUID, null) != null
     }
 
     fun getGuestUUID(): String? {
@@ -24,19 +25,15 @@ class GuestManager(context: Context) {
     }
 
     fun generateAndSaveGuestUUID(): String {
-        val uuid = UUID.randomUUID().toString()
-        prefs.edit()
-            .putString(KEY_GUEST_UUID, uuid)
-            .putBoolean(KEY_IS_GUEST, true)
-            .apply()
-        return uuid
+        val newId = "guest_${UUID.randomUUID()}"
+        prefs.edit().putString(KEY_GUEST_UUID, newId).apply()
+        prefs.edit().putBoolean(KEY_GUEST_SELECTED, true).apply()
+        return newId
     }
 
-    fun clearGuestData() {
-        prefs.edit()
-            .remove(KEY_GUEST_UUID)
-            .remove(KEY_IS_GUEST)
-            .apply()
+    // ✅ Add this method
+    fun getOrCreateGuestUUID(): String {
+        return getGuestUUID() ?: generateAndSaveGuestUUID()
     }
 }
 

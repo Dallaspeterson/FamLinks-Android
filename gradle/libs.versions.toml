@@ -24,8 +24,12 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
-amplify-core = { group = "com.amplifyframework", name = "core", version = "1.35.4" }
-amplify-auth-cognito = { group = "com.amplifyframework", name = "aws-auth-cognito", version = "1.35.4" }
+aws-s3 = { group = "software.amazon.awssdk", name = "s3", version = "2.25.18" }
+aws-core = { group = "software.amazon.awssdk", name = "core", version = "2.25.18" }
+aws-auth = { group = "software.amazon.awssdk", name = "auth", version = "2.25.18" }
+aws-cognitoidentity = { group = "software.amazon.awssdk", name = "cognitoidentity", version = "2.25.18" }
+aws-regions = { group = "software.amazon.awssdk", name = "regions", version = "2.25.18" }
+aws-url-connection-client = { group = "software.amazon.awssdk", name = "url-connection-client", version = "2.25.18" }
 
 
 

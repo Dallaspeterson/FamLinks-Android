@@ -4,7 +4,6 @@ package com.example.famlinks
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -15,8 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.amplifyframework.auth.cognito.AWSCognitoAuthPlugin
-import com.amplifyframework.core.Amplify
+import androidx.lifecycle.lifecycleScope
 import com.example.famlinks.ui.camera.CameraScreen
 import com.example.famlinks.ui.gallery.GalleryScreen
 import com.example.famlinks.ui.fam.FamScreen
@@ -26,75 +24,70 @@ import com.example.famlinks.ui.auth.WelcomeScreen
 import com.example.famlinks.ui.auth.SignUpScreen
 import com.example.famlinks.ui.theme.FamLinksTheme
 import com.example.famlinks.data.local.GuestManager
+import com.example.famlinks.data.remote.s3.AwsS3Client
+import com.example.famlinks.util.AppPreferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // AWS Amplify Initialization
-        try {
-            Amplify.addPlugin(AWSCognitoAuthPlugin())
-            Amplify.configure(applicationContext)
-            Log.i("FamLinks", "Amplify initialized successfully")
-        } catch (error: Exception) {
-            Log.e("FamLinks", "Failed to initialize Amplify", error)
-        }
-
-        // Permissions
+        // Request permissions
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
+            != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), 0)
         }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
-                1
-            )
+            != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ), 1)
         }
 
-        // UI
+        // UI setup
         setContent {
             FamLinksTheme {
                 val context = this
-                val guestManager = GuestManager(context)
-                val isUserSignedIn = try {
-                    Amplify.Auth.currentUser != null
-                } catch (e: Exception) {
-                    false
-                }
-
-                var showWelcome by remember {
-                    mutableStateOf(!isUserSignedIn && !guestManager.isGuest())
-                }
-
+                val guestManager = remember { GuestManager(context) }
+                val showWelcome = remember { mutableStateOf(!AppPreferences.isGuestSelected(context)) }
                 var showSignUp by remember { mutableStateOf(false) }
-                var selectedTab by remember { mutableStateOf(2) } // Start on Camera
+                var selectedTab by remember { mutableStateOf(2) }
+
+                var initialized by remember { mutableStateOf(false) }
+
+                LaunchedEffect(!showWelcome.value) {
+                    if (!initialized && guestManager.isGuest()) {
+                        lifecycleScope.launch {
+                            AwsS3Client.initialize(context)
+                        }
+                        initialized = true
+                    }
+                }
 
                 when {
-                    showWelcome -> {
+                    showWelcome.value -> {
                         WelcomeScreen(
                             onSignUpClick = {
-                                showWelcome = false
+                                showWelcome.value = false
                                 showSignUp = true
                             },
                             onContinueAsGuest = {
-                                guestManager.generateAndSaveGuestUUID() // Safe to call again, does nothing if already generated
-                                showWelcome = false
+                                AppPreferences.markGuestSelected(context) // ✅ NEW
+                                lifecycleScope.launch {
+                                    AwsS3Client.initialize(context)
+                                }
+                                initialized = true
+                                showWelcome.value = false
                             }
                         )
                     }
                     showSignUp -> {
-                        SignUpScreen(
-                            onSignUpComplete = {
-                                showSignUp = false
-                            }
-                        )
+                        SignUpScreen(onSignUpComplete = { showSignUp = false })
                     }
                     else -> {
                         Scaffold(
@@ -102,7 +95,7 @@ class MainActivity : ComponentActivity() {
                                 TopAppBar(
                                     title = { Text("FamLinks") },
                                     actions = {
-                                        IconButton(onClick = { /* Profile settings */ }) {
+                                        IconButton(onClick = { /* TODO: Profile */ }) {
                                             Icon(Icons.Default.Person, contentDescription = "Profile")
                                         }
                                     }
@@ -161,3 +154,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+

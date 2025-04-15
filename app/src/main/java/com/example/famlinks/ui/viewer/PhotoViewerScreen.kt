@@ -60,9 +60,10 @@ fun PhotoViewerScreen(
             )
         }
     ) { padding ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(padding)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
         ) {
             HorizontalPager(
                 state = pagerState,
@@ -97,34 +98,37 @@ fun PhotoMetadataSheet(photoPath: String, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         modifier = Modifier.fillMaxWidth()
     ) {
-        val file = File(photoPath)
+        val context = LocalContext.current
         val exif = remember(photoPath) {
-            runCatching { ExifInterface(photoPath) }.getOrNull()
+            runCatching { ExifInterface(photoPath) }
+                .onFailure { Log.e("PhotoMetadata", "Failed to load Exif for $photoPath", it) }
+                .getOrNull()
         }
 
-        val dateTaken = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-            .format(Date(file.lastModified()))
+        val (dateTaken, fileSize, resolution) = remember(photoPath) {
+            val file = File(photoPath)
+            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+            val date = sdf.format(Date(file.lastModified()))
 
-        val fileSizeKb = file.length() / 1024
-        val fileSize = if (fileSizeKb > 1000) {
-            val mb = fileSizeKb / 1024f
-            String.format("%.1f MB", mb)
-        } else {
-            "$fileSizeKb KB"
-        }
+            val sizeKb = file.length() / 1024
+            val sizeStr = if (sizeKb > 1000) {
+                val mb = sizeKb / 1024f
+                String.format("%.1f MB", mb)
+            } else {
+                "$sizeKb KB"
+            }
 
-        // 🖼 Real image resolution using BitmapFactory
-        val resolution = remember(photoPath) {
-            runCatching {
+            val res = runCatching {
                 val options = android.graphics.BitmapFactory.Options().apply {
                     inJustDecodeBounds = true
                 }
                 android.graphics.BitmapFactory.decodeFile(photoPath, options)
                 "${options.outWidth} x ${options.outHeight}"
             }.getOrDefault("Unknown")
+
+            Triple(date, sizeStr, res)
         }
 
-        val context = LocalContext.current
         var readableLocation by remember { mutableStateOf("Loading...") }
 
         val latLong = FloatArray(2)
@@ -140,8 +144,8 @@ fun PhotoMetadataSheet(photoPath: String, onDismiss: () -> Unit) {
                         geocoder.getFromLocation(lat, lon, 1)?.firstOrNull()
                     }
                     val locationString = listOfNotNull(address?.locality, address?.adminArea).joinToString(", ")
-                    Log.d("PhotoLocation", "Lat: $lat, Lon: $lon -> $locationString")
-                    readableLocation = locationString
+                    val fallbackLocation = "Lat: $lat, Lon: $lon"
+                    readableLocation = locationString.ifEmpty { fallbackLocation }
                 } catch (e: Exception) {
                     Log.e("PhotoLocation", "Reverse geocoding failed", e)
                     readableLocation = "Location Unavailable"
@@ -152,10 +156,19 @@ fun PhotoMetadataSheet(photoPath: String, onDismiss: () -> Unit) {
         }
 
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("📅 Date Taken: $dateTaken")
-            Text("📁 File Size: $fileSize")
-            Text("📐 Resolution: $resolution")
-            Text("📍 Location: $readableLocation")
+            InfoRow(label = "📅 Date Taken", value = dateTaken)
+            InfoRow(label = "📁 File Size", value = fileSize)
+            InfoRow(label = "📐 Resolution", value = resolution)
+            InfoRow(label = "📍 Location", value = readableLocation)
         }
     }
 }
+
+@Composable
+fun InfoRow(label: String, value: String) {
+    Row(modifier = Modifier.padding(vertical = 4.dp)) {
+        Text("$label: ", style = MaterialTheme.typography.bodyMedium)
+        Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+

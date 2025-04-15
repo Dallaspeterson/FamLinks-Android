@@ -1,25 +1,20 @@
-// File: WelcomeScreen.kt
+// File: ui/auth/WelcomeScreen.kt
 package com.example.famlinks.ui.auth
 
-import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.famlinks.data.local.GuestManager
 
 @Composable
 fun WelcomeScreen(
-    onContinueAsGuest: () -> Unit,
-    onSignUpClick: () -> Unit
+    onSignUpClick: () -> Unit,
+    onContinueAsGuest: () -> Unit
 ) {
-    val context = LocalContext.current
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -51,16 +46,7 @@ fun WelcomeScreen(
             "Continue as Guest",
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier
-                .clickable {
-                    val guestManager = GuestManager(context)
-                    if (!guestManager.isGuest()) {
-                        val guestId = guestManager.generateAndSaveGuestUUID()
-                        Log.i("GuestSetup", "Generated guest ID: $guestId")
-                    } else {
-                        Log.i("GuestSetup", "Guest already exists: ${guestManager.getGuestUUID()}")
-                    }
-                    onContinueAsGuest()
-                }
+                .clickable { onContinueAsGuest() }
                 .padding(8.dp)
         )
     }

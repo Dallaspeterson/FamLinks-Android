@@ -5,6 +5,7 @@
 
     <!-- ✅ Permissions -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- For reading saved media (Android 13+ prefers READ_MEDIA_IMAGES) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />

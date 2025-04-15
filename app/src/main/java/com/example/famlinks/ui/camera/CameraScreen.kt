@@ -1,12 +1,14 @@
 // File: ui/camera/CameraScreen.kt
 package com.example.famlinks.ui.camera
 
+import com.example.famlinks.util.AppPreferences
 import android.graphics.Bitmap
 import android.location.Location
 import android.os.Build
 import android.util.Log
 import android.net.Uri
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.camera.core.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -29,9 +31,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.famlinks.viewmodel.CameraViewModel
+import com.example.famlinks.data.remote.s3.S3Uploader
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.delay
@@ -51,6 +53,7 @@ fun CameraScreen() {
 
     val coroutineScope = rememberCoroutineScope()
     var imageCapture by remember { mutableStateOf(ImageCapture.Builder().build()) }
+    val guestUUID by remember { mutableStateOf(AppPreferences.getGuestId(context) ?: "") }
     var cameraSessionKey by remember { mutableStateOf(UUID.randomUUID().toString()) }
 
     val cameraViewModel: CameraViewModel = viewModel()
@@ -142,8 +145,6 @@ fun CameraScreen() {
             onClick = {
                 coroutineScope.launch {
                     val isFrontCamera = lensFacing == CameraSelector.LENS_FACING_FRONT
-
-                    // ✅ Get last known location before capture
                     val currentLocation = suspendCancellableCoroutine<Location?> { continuation ->
                         fusedLocationClient.lastLocation
                             .addOnSuccessListener { continuation.resume(it) }
@@ -163,8 +164,7 @@ fun CameraScreen() {
                         val mediaDir = context.getExternalFilesDir("FamLinks")?.apply { mkdirs() }
                         val photoFile = File(
                             mediaDir,
-                            SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
-                                .format(System.currentTimeMillis()) + ".jpg"
+                            SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US).format(System.currentTimeMillis()) + ".jpg"
                         )
 
                         val metadata = ImageCapture.Metadata().apply {
@@ -184,9 +184,12 @@ fun CameraScreen() {
                                     cameraViewModel.setFlash(false)
                                 }
 
+                                @RequiresApi(Build.VERSION_CODES.O)
                                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                    val uri = photoFile.toUri()
-                                    cameraViewModel.setLastPhotoUri(uri)
+                                    coroutineScope.launch {
+                                        val success = S3Uploader.uploadPhoto(photoFile, guestUUID)
+                                        Log.i("CameraScreen", "Upload success: $success")
+                                    }
                                 }
                             }
                         )
@@ -204,7 +207,7 @@ fun CameraScreen() {
                     .padding(24.dp)
                     .size(56.dp),
                 onClick = {
-                    // Optional: open gallery tab, or do nothing for now
+                    // Optional: open gallery tab
                 }
             ) {
                 Image(
@@ -225,5 +228,3 @@ fun CameraScreen() {
         }
     }
 }
-
-
