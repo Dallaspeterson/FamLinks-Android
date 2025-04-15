@@ -33,6 +33,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 
+    kotlin {
+        jvmToolchain(17)
+    }
+
     kotlinOptions {
         jvmTarget = "1.8"
     }
@@ -42,7 +46,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
+        kotlinCompilerExtensionVersion = "1.5.11"
     }
 
     packaging {
@@ -58,9 +62,6 @@ android {
         }
     }
 
-    configurations.all {
-        exclude(group = "software.amazon.awssdk", module = "protocols-query")
-    }
 }
 
 dependencies {
@@ -92,17 +93,12 @@ dependencies {
     // Location services
     implementation("com.google.android.gms:play-services-location:21.0.1")
 
-    // Required for AWS XML parsing support on Android
-    implementation("org.codehaus.woodstox:stax2-api:4.2.1")
-    implementation("com.fasterxml.woodstox:woodstox-core:6.6.1")
-
-    // AWS SDK v2
-    implementation(libs.aws.cognitoidentity)
-    implementation(libs.aws.auth)
-    implementation(libs.aws.core)
-    implementation(libs.aws.s3)
-    implementation(libs.aws.regions)
-    implementation(libs.aws.url.connection.client)
+    // ✅ AWS SDK v1 for Android
+    implementation("com.amazonaws:aws-android-sdk-core:2.73.0")
+    implementation("com.amazonaws:aws-android-sdk-s3:2.73.0")
+    implementation("com.amazonaws:aws-android-sdk-cognitoidentityprovider:2.73.0")
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.material3)
 
     // Testing
     testImplementation(libs.junit)

@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
 import com.example.famlinks.ui.camera.CameraScreen
 import com.example.famlinks.ui.gallery.GalleryScreen
 import com.example.famlinks.ui.fam.FamScreen
@@ -26,14 +25,13 @@ import com.example.famlinks.ui.theme.FamLinksTheme
 import com.example.famlinks.data.local.GuestManager
 import com.example.famlinks.data.remote.s3.AwsS3Client
 import com.example.famlinks.util.AppPreferences
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AwsS3Client.initialize(applicationContext) // ← 🔐 Required
+
 
         // Request permissions
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
@@ -59,12 +57,11 @@ class MainActivity : ComponentActivity() {
                 var selectedTab by remember { mutableStateOf(2) }
 
                 var initialized by remember { mutableStateOf(false) }
+                var triggerInit by remember { mutableStateOf(false) }
 
-                LaunchedEffect(!showWelcome.value) {
+                LaunchedEffect(!showWelcome.value || triggerInit) {
                     if (!initialized && guestManager.isGuest()) {
-                        lifecycleScope.launch {
-                            AwsS3Client.initialize(context)
-                        }
+                        AwsS3Client.initialize(context)
                         initialized = true
                     }
                 }
@@ -77,12 +74,9 @@ class MainActivity : ComponentActivity() {
                                 showSignUp = true
                             },
                             onContinueAsGuest = {
-                                AppPreferences.markGuestSelected(context) // ✅ NEW
-                                lifecycleScope.launch {
-                                    AwsS3Client.initialize(context)
-                                }
-                                initialized = true
+                                AppPreferences.markGuestSelected(context)
                                 showWelcome.value = false
+                                triggerInit = true
                             }
                         )
                     }
@@ -154,4 +148,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-

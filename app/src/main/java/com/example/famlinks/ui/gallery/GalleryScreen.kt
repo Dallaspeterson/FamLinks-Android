@@ -9,48 +9,92 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.example.famlinks.data.remote.s3.S3GalleryLoader
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GalleryScreen() {
     val context = LocalContext.current
-    var s3ImageUrls by remember { mutableStateOf(emptyList<String>()) }
+    var s3ImageUrls by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    val reloadTrigger = remember { mutableStateOf(0) } // triggers reload when value changes
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(reloadTrigger.value) {
+        isLoading = true
         val urls = S3GalleryLoader.listPhotoUrls()
-        Log.d("GalleryScreen", "Loaded ${urls.size} image URLs")
+        Log.d("GalleryScreen", "✅ Loaded ${urls.size} image URLs")
         s3ImageUrls = urls
+        isLoading = false
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Gallery") }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("Gallery") },
+                actions = {
+                    IconButton(onClick = {
+                        // Manual reload option
+                        reloadTrigger.value++
+                    }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Reload")
+                    }
+                }
+            )
+        }
     ) { paddingValues ->
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 120.dp),
+        Box(
             modifier = Modifier
+                .fillMaxSize()
                 .padding(paddingValues)
-                .padding(8.dp),
-            contentPadding = PaddingValues(4.dp)
         ) {
-            items(s3ImageUrls) { url ->
-                Image(
-                    painter = rememberAsyncImagePainter(url),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .aspectRatio(1f)
-                        .padding(4.dp)
-                        .clickable {
-                            Toast.makeText(context, "Tapped: $url", Toast.LENGTH_SHORT).show()
+            when {
+                isLoading -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+                s3ImageUrls.isEmpty() -> {
+                    Text(
+                        "No photos uploaded yet.",
+                        modifier = Modifier.align(Alignment.Center),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                else -> {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 120.dp),
+                        contentPadding = PaddingValues(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(s3ImageUrls) { url ->
+                            Image(
+                                painter = rememberAsyncImagePainter(url),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .aspectRatio(1f)
+                                    .clickable {
+                                        Toast
+                                            .makeText(context, "Tapped: $url", Toast.LENGTH_SHORT)
+                                            .show()
+                                    }
+                            )
                         }
-                )
+                    }
+                }
             }
         }
     }
 }
+
