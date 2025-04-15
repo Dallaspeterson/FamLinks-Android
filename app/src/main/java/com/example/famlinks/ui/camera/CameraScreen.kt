@@ -8,6 +8,7 @@ import android.os.Build
 import android.util.Log
 import android.net.Uri
 import android.widget.Toast
+import android.content.Context
 import androidx.annotation.RequiresApi
 import androidx.camera.core.*
 import androidx.compose.animation.core.animateFloatAsState
@@ -36,9 +37,11 @@ import com.example.famlinks.viewmodel.CameraViewModel
 import com.example.famlinks.data.remote.s3.S3Uploader
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -187,8 +190,14 @@ fun CameraScreen() {
                                 @RequiresApi(Build.VERSION_CODES.O)
                                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                                     coroutineScope.launch {
-                                        val success = S3Uploader.uploadPhoto(photoFile, guestUUID)
-                                        Log.i("CameraScreen", "Upload success: $success")
+                                        withContext(Dispatchers.IO) {
+                                            if (!photoFile.exists()) {
+                                                Log.e("CameraScreen", "❌ File not found: ${photoFile.absolutePath}")
+                                                return@withContext
+                                            }
+                                            val success = S3Uploader.uploadPhoto(context, photoFile)
+                                            Log.i("CameraScreen", "Upload success: $success")
+                                        }
                                     }
                                 }
                             }

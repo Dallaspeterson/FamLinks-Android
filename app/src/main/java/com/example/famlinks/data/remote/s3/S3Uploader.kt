@@ -1,33 +1,52 @@
 // File: data/remote/s3/S3Uploader.kt
 package com.example.famlinks.data.remote.s3
 
-import android.os.Build
+import android.content.Context
 import android.util.Log
-import androidx.annotation.RequiresApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
 import software.amazon.awssdk.core.sync.RequestBody
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
+import com.example.famlinks.util.GuestCredentialsProvider
 import java.io.File
-import com.example.famlinks.data.remote.Constants
 
 object S3Uploader {
-    @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun uploadPhoto(file: File, userId: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val key = "users/$userId/${file.name}"
-            val s3 = AwsS3Client.getClient() ?: return@withContext false
+    private const val REGION = "us-east-1"
+    private const val BUCKET_NAME = "famlinks-user-media"
+
+    suspend fun uploadPhoto(context: Context, file: File): Boolean {
+        return try {
+            val credentialsProvider = GuestCredentialsProvider.getCredentialsProvider(context)
+            val identityId = GuestCredentialsProvider.getIdentityId(context) ?: run {
+                Log.e("S3Uploader", "❌ Missing identity ID")
+                return false
+            }
+
+            val key = "users/$identityId/${file.name}"
+            Log.i("S3Uploader", "📤 Uploading to bucket: $BUCKET_NAME, Key: $key")
+
+            val s3 = S3Client.builder()
+                .region(Region.of(REGION))
+                .credentialsProvider(credentialsProvider)
+                .httpClientBuilder(UrlConnectionHttpClient.builder())
+                .build()
 
             val request = PutObjectRequest.builder()
-                .bucket(Constants.S3_BUCKET)
+                .bucket(BUCKET_NAME)
                 .key(key)
                 .build()
 
-            s3.putObject(request, file.toPath())
+            val requestBody = RequestBody.fromFile(file)
+
+            val response = s3.putObject(request, requestBody)
+            Log.i("S3Uploader", "✅ Upload completed. ETag: ${response.eTag()}")
             true
         } catch (e: Exception) {
-            Log.e("S3Uploader", "Upload failed", e)
+            Log.e("S3Uploader", "❌ Upload failed", e)
             false
         }
     }
 }
+

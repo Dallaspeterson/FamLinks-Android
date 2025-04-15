@@ -15,9 +15,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables {
-            useSupportLibrary = true
-        }
+        vectorDrawables.useSupportLibrary = true
     }
 
     buildTypes {
@@ -29,19 +27,24 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+
     kotlinOptions {
         jvmTarget = "1.8"
     }
+
     buildFeatures {
         compose = true
     }
+
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.1"
     }
+
     packaging {
         resources {
             excludes += setOf(
@@ -54,10 +57,14 @@ android {
             )
         }
     }
+
+    configurations.all {
+        exclude(group = "software.amazon.awssdk", module = "protocols-query")
+    }
 }
 
 dependencies {
-    // AndroidX Core + Compose
+    // Compose + Navigation
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -72,30 +79,32 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
 
     // CameraX
-    implementation("androidx.camera:camera-core:1.3.0")
-    implementation("androidx.camera:camera-camera2:1.3.0")
-    implementation("androidx.camera:camera-lifecycle:1.3.0")
-    implementation("androidx.camera:camera-view:1.3.0")
-    implementation("androidx.camera:camera-video:1.3.0")
-    implementation("androidx.camera:camera-extensions:1.3.0")
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
+    implementation(libs.camera.video)
+    implementation(libs.camera.extensions)
 
-    // Location
+    // Coil for image loading
+    implementation(libs.coil.compose)
+
+    // Location services
     implementation("com.google.android.gms:play-services-location:21.0.1")
 
-    // Image Loading
-    implementation("io.coil-kt:coil-compose:2.4.0")
-
-    // ✅ Native AWS SDK v2
-    implementation("software.amazon.awssdk:cognitoidentity:2.25.18")
-    implementation("software.amazon.awssdk:s3:2.25.18")
-    implementation("software.amazon.awssdk:auth:2.25.18")
-    implementation("software.amazon.awssdk:core:2.25.18")
-    implementation("software.amazon.awssdk:regions:2.25.18")
-    implementation("software.amazon.awssdk:url-connection-client:2.25.18")
-
-    // ✅ Fix for missing XMLInputFactory on Android
+    // Required for AWS XML parsing support on Android
     implementation("org.codehaus.woodstox:stax2-api:4.2.1")
-    implementation("com.fasterxml.woodstox:woodstox-core:6.2.6")
+    implementation("com.fasterxml.woodstox:woodstox-core:6.6.1")
+    implementation("com.fasterxml.woodstox:woodstox-core:6.5.1")
+
+
+    // AWS SDK v2
+    implementation(libs.aws.cognitoidentity)
+    implementation(libs.aws.auth)
+    implementation(libs.aws.core)
+    implementation(libs.aws.s3)
+    implementation(libs.aws.regions)
+    implementation(libs.aws.url.connection.client)
 
     // Testing
     testImplementation(libs.junit)
