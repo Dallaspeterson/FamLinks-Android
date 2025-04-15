@@ -33,6 +33,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
+import com.example.famlinks.data.remote.metadata.MetadataUploader
+import com.example.famlinks.data.remote.metadata.PhotoMetadata
 import com.example.famlinks.viewmodel.CameraViewModel
 import com.example.famlinks.data.remote.s3.S3Uploader
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -197,6 +199,17 @@ fun CameraScreen() {
                                             }
                                             val success = S3Uploader.uploadPhoto(context, photoFile)
                                             Log.i("CameraScreen", "Upload success: $success")
+
+                                            if (success) {
+                                                val metadataItem = PhotoMetadata(
+                                                    identityId = guestUUID,
+                                                    photoKey = "users/$guestUUID/${photoFile.name}",
+                                                    timestamp = System.currentTimeMillis(),
+                                                    latitude = currentLocation?.latitude,
+                                                    longitude = currentLocation?.longitude
+                                                )
+                                                MetadataUploader.uploadMetadata(context, metadataItem)
+                                            }
                                         }
                                     }
                                 }

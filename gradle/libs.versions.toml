@@ -28,6 +28,12 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+aws-core = { module = "com.amazonaws:aws-android-sdk-core", version = "2.73.0" }
+aws-ddb = { module = "com.amazonaws:aws-android-sdk-ddb", version = "2.73.0" }
+aws-mobile-client = { module = "com.amazonaws:aws-android-sdk-mobile-client", version = "2.73.0" }
+aws-ddb-mapper = { module = "com.amazonaws:aws-android-sdk-ddb-mapper", version = "2.73.0" }
+
+
 
 camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraX" }
 camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "cameraX" }
@@ -35,6 +41,7 @@ camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", versi
 camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraX" }
 camera-video = { group = "androidx.camera", name = "camera-video", version.ref = "cameraX" }
 camera-extensions = { group = "androidx.camera", name = "camera-extensions", version.ref = "cameraX" }
+
 
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 

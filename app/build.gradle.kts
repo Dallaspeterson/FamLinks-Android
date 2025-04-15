@@ -108,5 +108,13 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    implementation(libs.aws.core)
+    implementation(libs.aws.ddb)
+    implementation(libs.aws.mobile.client)
+    implementation(libs.aws.ddb.mapper)
+
+
+
 }
 

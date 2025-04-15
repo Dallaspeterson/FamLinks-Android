@@ -32,6 +32,21 @@ fun GalleryScreen() {
     LaunchedEffect(reloadTrigger.value) {
         isLoading = true
         val urls = S3GalleryLoader.listPhotoUrls()
+        // TEST: Upload dummy metadata to DynamoDB
+        val identityId = com.example.famlinks.util.GuestCredentialsProvider.getIdentityId(context)
+
+        if (identityId != null) {
+            val testMetadata = com.example.famlinks.data.remote.metadata.PhotoMetadata(
+                identityId = identityId,
+                photoKey = "users/$identityId/test-photo.jpg",
+                timestamp = System.currentTimeMillis(),
+                latitude = 33.1234,
+                longitude = -110.5678
+            )
+
+            com.example.famlinks.data.remote.metadata.MetadataUploader.uploadMetadata(context, testMetadata)
+        }
+
         Log.d("GalleryScreen", "✅ Loaded ${urls.size} image URLs")
         s3ImageUrls = urls
         isLoading = false
