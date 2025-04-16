@@ -2,7 +2,11 @@
 package com.example.famlinks.navigation
 
 import android.annotation.SuppressLint
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
@@ -12,65 +16,138 @@ import com.example.famlinks.ui.auth.SignUpScreen
 import com.example.famlinks.ui.auth.WelcomeScreen
 import com.example.famlinks.ui.camera.CameraScreen
 import com.example.famlinks.ui.gallery.GalleryScreen
-import com.example.famlinks.ui.viewer.PhotoViewerScreen
+import com.example.famlinks.ui.fam.FamScreen
+import com.example.famlinks.ui.famlinks.FamLinksScreen
+import com.example.famlinks.ui.portals.PortalsScreen
 import com.example.famlinks.util.AppPreferences
-import java.io.File
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.famlinks.presentation.viewer.PhotoViewerScreen
+import com.example.famlinks.viewmodel.PhotoViewerViewModel
+
+data class Screen(val route: String, val icon: ImageVector, val label: String)
 
 @SuppressLint("RestrictedApi")
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FamLinksApp(modifier: Modifier = Modifier) {
-    val navController = rememberNavController()
     val context = LocalContext.current
+    val navController = rememberNavController()
 
-    val startDestination = if (AppPreferences.isGuestSelected(context)) {
-        "camera"
-    } else {
-        "welcome"
-    }
+    val tabs = listOf(
+        Screen("gallery", Icons.Default.Image, "Gallery"),
+        Screen("famlinks", Icons.Default.Inbox, "FamLinks"),
+        Screen("camera", Icons.Default.CameraAlt, "Camera"),
+        Screen("fam", Icons.Default.Group, "Fam"),
+        Screen("portals", Icons.Default.Event, "Portals")
+    )
 
-    NavHost(navController = navController, startDestination = startDestination) {
-        composable("welcome") {
-            WelcomeScreen(
-                onSignUpClick = { navController.navigate("signup") },
-                onContinueAsGuest = {
-                    AppPreferences.markGuestSelected(context)
-                    navController.navigate("camera") {
-                        popUpTo("welcome") { inclusive = true }
+    val startDestination = if (AppPreferences.isGuestSelected(context)) "camera" else "welcome"
+    var currentRoute by remember { mutableStateOf(startDestination) }
+    val photoViewerViewModel: PhotoViewerViewModel = viewModel()
+
+    Scaffold(
+        topBar = {
+            if (!currentRoute.startsWith("photoViewer") && currentRoute != "welcome" && currentRoute != "signup") {
+                TopAppBar(
+                    title = { Text("FamLinks") },
+                    actions = {
+                        IconButton(onClick = { /* TODO: Add profile logic */ }) {
+                            Icon(Icons.Default.Person, contentDescription = "Profile")
+                        }
+                    }
+                )
+            }
+        },
+        bottomBar = {
+            if (!currentRoute.startsWith("photoViewer") && currentRoute != "welcome" && currentRoute != "signup") {
+                NavigationBar {
+                    tabs.forEach { screen ->
+                        NavigationBarItem(
+                            selected = currentRoute == screen.route,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo("camera") { inclusive = false }
+                                    launchSingleTop = true
+                                }
+                            },
+                            icon = { Icon(screen.icon, contentDescription = screen.label) },
+                            label = { Text(screen.label) }
+                        )
                     }
                 }
-            )
+            }
         }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = startDestination,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable("welcome") {
+                currentRoute = "welcome"
+                WelcomeScreen(
+                    onSignUpClick = { navController.navigate("signup") },
+                    onContinueAsGuest = {
+                        AppPreferences.markGuestSelected(context)
+                        navController.navigate("camera") {
+                            popUpTo("welcome") { inclusive = true }
+                        }
+                    }
+                )
+            }
 
-        composable("signup") {
-            SignUpScreen(onSignUpComplete = {
-                navController.navigate("camera") {
-                    popUpTo("signup") { inclusive = true }
-                }
-            })
-        }
+            composable("signup") {
+                currentRoute = "signup"
+                SignUpScreen(onSignUpComplete = {
+                    navController.navigate("camera") {
+                        popUpTo("signup") { inclusive = true }
+                    }
+                })
+            }
 
-        composable("camera") {
-            CameraScreen()
-        }
+            composable("camera") {
+                currentRoute = "camera"
+                CameraScreen()
+            }
 
-        composable("gallery") {
-            GalleryScreen()
-        }
+            composable("gallery") {
+                currentRoute = "gallery"
+                GalleryScreen(
+                    navController = navController,
+                    viewModel = photoViewerViewModel
+                )
+            }
 
-        composable(
-            route = "photoViewer/{initialIndex}",
-            arguments = listOf(navArgument("initialIndex") { type = NavType.IntType })
-        ) { backStackEntry ->
-            val index = backStackEntry.arguments?.getInt("initialIndex") ?: 0
-            val mediaDir = context.getExternalFilesDir("FamLinks")?.apply { mkdirs() }
-            val imageFiles = mediaDir?.listFiles()?.sortedByDescending { it.lastModified() } ?: emptyList()
-            val photoPaths = imageFiles.map { it.absolutePath }
+            composable("famlinks") {
+                currentRoute = "famlinks"
+                FamLinksScreen()
+            }
 
-            PhotoViewerScreen(
-                navController = navController,
-                photoPaths = photoPaths,
-                initialIndex = index
-            )
+            composable("fam") {
+                currentRoute = "fam"
+                FamScreen()
+            }
+
+            composable("portals") {
+                currentRoute = "portals"
+                PortalsScreen()
+            }
+
+            composable(
+                route = "photoViewer/{initialIndex}",
+                arguments = listOf(navArgument("initialIndex") { type = NavType.IntType })
+            ) { backStackEntry ->
+                currentRoute = "photoViewer"
+                val index = backStackEntry.arguments?.getInt("initialIndex") ?: 0
+
+                PhotoViewerScreen(
+                    navController = navController,
+                    initialIndex = index,
+                    viewModel = photoViewerViewModel
+                )
+            }
         }
     }
 }
+
