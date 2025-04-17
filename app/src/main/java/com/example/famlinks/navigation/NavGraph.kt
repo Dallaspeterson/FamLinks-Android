@@ -23,6 +23,7 @@ import com.example.famlinks.util.AppPreferences
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.famlinks.presentation.viewer.PhotoViewerScreen
+import com.example.famlinks.viewmodel.GalleryViewModel
 import com.example.famlinks.viewmodel.PhotoViewerViewModel
 
 data class Screen(val route: String, val icon: ImageVector, val label: String)
@@ -33,6 +34,7 @@ data class Screen(val route: String, val icon: ImageVector, val label: String)
 fun FamLinksApp(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val navController = rememberNavController()
+    val galleryViewModel: GalleryViewModel = viewModel()
 
     val tabs = listOf(
         Screen("gallery", Icons.Default.Image, "Gallery"),
@@ -108,14 +110,18 @@ fun FamLinksApp(modifier: Modifier = Modifier) {
 
             composable("camera") {
                 currentRoute = "camera"
-                CameraScreen()
+                CameraScreen(
+                    galleryViewModel = galleryViewModel,
+                    navController = navController
+                )
             }
 
             composable("gallery") {
                 currentRoute = "gallery"
                 GalleryScreen(
                     navController = navController,
-                    viewModel = photoViewerViewModel
+                    viewModel = photoViewerViewModel,
+                    galleryViewModel = galleryViewModel
                 )
             }
 

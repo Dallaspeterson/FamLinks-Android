@@ -16,37 +16,46 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.famlinks.data.remote.s3.AwsS3Client
 import com.example.famlinks.data.remote.s3.S3GalleryLoader
+import com.example.famlinks.viewmodel.GalleryViewModel
 import com.example.famlinks.viewmodel.PhotoViewerViewModel
-
-
+import com.example.famlinks.data.remote.s3.S3Photo
 
 @Composable
 fun GalleryScreen(
     navController: NavController,
-    viewModel: PhotoViewerViewModel
+    viewModel: PhotoViewerViewModel,
+    galleryViewModel: GalleryViewModel
 ) {
     val context = LocalContext.current
-    var photoUrls by remember { mutableStateOf<List<String>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val photoList by galleryViewModel.photoList.collectAsState()
+    var isLoading by remember { mutableStateOf(!galleryViewModel.isLoaded()) }
 
     LaunchedEffect(Unit) {
-        try {
-            Log.d("GalleryScreen", "🛠 Initializing S3 client")
-            AwsS3Client.initialize(context)
-            Log.d("GalleryScreen", "✅ S3 initialized. Loading gallery...")
-            val urls = S3GalleryLoader.listPhotoUrls()
-            photoUrls = urls
-            Log.d("GalleryScreen", "📷 Loaded ${urls.size} images.")
-        } catch (e: Exception) {
-            Log.e("GalleryScreen", "❌ Failed to load gallery", e)
-        } finally {
-            isLoading = false
+        if (!galleryViewModel.isLoaded()) {
+            try {
+                Log.d("GalleryScreen", "🛠 Initializing S3 client")
+                AwsS3Client.initialize(context)
+                Log.d("GalleryScreen", "✅ S3 initialized. Loading gallery...")
+                val urls = S3GalleryLoader.listPhotoUrls()
+
+                val reversedList = urls.reversed()
+                val photoObjects = reversedList.map { url ->
+                    val key = url.substringBefore("?").substringAfter("users/")
+                    S3Photo(key = "users/$key", url = url)
+                }
+
+                galleryViewModel.setPhotoList(photoObjects)
+                Log.d("GalleryScreen", "📷 Loaded ${photoObjects.size} images.")
+            } catch (e: Exception) {
+                Log.e("GalleryScreen", "❌ Failed to load gallery", e)
+            } finally {
+                isLoading = false
+            }
         }
     }
 
@@ -57,26 +66,19 @@ fun GalleryScreen(
             }
         }
 
-        photoUrls.isEmpty() -> {
+        photoList.isEmpty() -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No photos found.")
             }
         }
 
         else -> {
-
-            val reversedList = photoUrls.reversed()
-            val photoObjects = reversedList.map { url ->
-                val key = url.substringBefore("?").substringAfter("users/")
-                com.example.famlinks.data.remote.s3.S3Photo(key = "users/$key", url = url)
-            }
-
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 128.dp),
                 contentPadding = PaddingValues(8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                itemsIndexed(photoObjects) { index, photo ->
+                itemsIndexed(photoList) { index, photo ->
                     Box(
                         modifier = Modifier
                             .padding(4.dp)
@@ -84,7 +86,7 @@ fun GalleryScreen(
                             .aspectRatio(1f)
                             .clickable {
                                 Log.d("GalleryScreen", "🖼️ Tapped image $index")
-                                viewModel.setPhotos(photoObjects)
+                                viewModel.setPhotos(photoList)
                                 navController.navigate("photoViewer/$index")
                             }
                     ) {

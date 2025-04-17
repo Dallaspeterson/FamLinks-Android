@@ -30,11 +30,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.example.famlinks.data.remote.metadata.DynamoMetadataItem
 import com.example.famlinks.data.remote.metadata.MetadataUploader
 import com.example.famlinks.viewmodel.CameraViewModel
 import com.example.famlinks.data.remote.s3.S3Uploader
 import com.example.famlinks.util.GuestCredentialsProvider
+import com.example.famlinks.viewmodel.GalleryViewModel
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +51,10 @@ import java.util.*
 import kotlin.coroutines.resume
 
 @Composable
-fun CameraScreen() {
+fun CameraScreen(
+    galleryViewModel: GalleryViewModel,
+    navController: NavController
+) {
     val context = LocalContext.current
     val fusedLocationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
@@ -190,6 +195,9 @@ fun CameraScreen() {
 
                                         MetadataUploader.uploadMetadata(context, metadataItem)
                                     }
+                                    withContext(Dispatchers.Main) {
+                                        galleryViewModel.refreshGallery(context)
+                                    }
                                 }
                             }
                         } else {
@@ -239,6 +247,9 @@ fun CameraScreen() {
                                                     this.longitude = currentLocation?.longitude
                                                 }
                                                 MetadataUploader.uploadMetadata(context, metadataItem)
+                                            }
+                                            withContext(Dispatchers.Main) {
+                                                galleryViewModel.refreshGallery(context)
                                             }
                                         }
                                     }
