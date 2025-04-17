@@ -25,7 +25,6 @@ import coil.request.ImageRequest
 import com.example.famlinks.R
 import com.example.famlinks.viewmodel.PhotoDisplayMetadata
 import com.example.famlinks.viewmodel.PhotoViewerViewModel
-import com.example.famlinks.data.remote.s3.S3Photo
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -35,19 +34,12 @@ fun PhotoViewerScreen(
     viewModel: PhotoViewerViewModel
 ) {
     val context = LocalContext.current
-
     val photoList by viewModel.photoList.collectAsState()
     val metadataMap by viewModel.metadataMap.collectAsState()
-
-    LaunchedEffect(photoList) {
-        Log.d("PhotoViewerScreen", "📸 photoList updated with ${photoList.size} items")
-    }
-
     val pagerState = rememberPagerState(
         initialPage = initialIndex,
         pageCount = { photoList.size }
     )
-
     var showMetadata by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -87,21 +79,26 @@ fun PhotoViewerScreen(
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     val photo = viewModel.getPhoto(page)
-                    Log.d("PhotoViewerScreen", "Displaying URL: ${photo?.url}")
+                    Log.d("PhotoViewerScreen", "📸 Displaying URL: ${photo?.url}")
 
                     photo?.let {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(it.url)
-                                .crossfade(true)
-                                .error(R.drawable.image_load_error)
-                                .build(),
-                            contentDescription = "Photo",
-                            contentScale = ContentScale.Fit,
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f)
-                        )
+                                .fillMaxSize()
+                                .background(Color.Black),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(it.url)
+                                    .crossfade(true)
+                                    .error(R.drawable.image_load_error)
+                                    .build(),
+                                contentDescription = "Photo",
+                                contentScale = ContentScale.Fit, // or try .Inside or .FillBounds
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                 }
             } else {
