@@ -31,7 +31,8 @@ import com.example.famlinks.viewmodel.PhotoViewerViewModel
 fun PhotoViewerScreen(
     navController: NavController,
     initialIndex: Int,
-    viewModel: PhotoViewerViewModel
+    viewModel: PhotoViewerViewModel,
+    onClose: () -> Unit
 ) {
     val context = LocalContext.current
     val photoList by viewModel.photoList.collectAsState()
@@ -50,7 +51,7 @@ fun PhotoViewerScreen(
                     Text("Photo ${pagerState.currentPage + 1} of ${photoList.size}")
                 },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = onClose) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -95,7 +96,7 @@ fun PhotoViewerScreen(
                                     .error(R.drawable.image_load_error)
                                     .build(),
                                 contentDescription = "Photo",
-                                contentScale = ContentScale.Fit, // or try .Inside or .FillBounds
+                                contentScale = ContentScale.Fit,
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
@@ -129,10 +130,10 @@ fun PhotoMetadataSheet(metadata: PhotoDisplayMetadata, onDismiss: () -> Unit) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            InfoRow("\uD83D\uDCC5 Date Taken", metadata.dateTaken)
-            InfoRow("\uD83D\uDCC1 File Size", metadata.fileSize)
-            InfoRow("\uD83D\uDCC0 Resolution", metadata.resolution)
-            InfoRow("\uD83D\uDCCD Location", metadata.location)
+            InfoRow("📅 Date Taken", metadata.dateTaken)
+            InfoRow("📁 File Size", metadata.fileSize)
+            InfoRow("📀 Resolution", metadata.resolution)
+            InfoRow("📍 Location", metadata.location)
         }
     }
 }
@@ -144,3 +145,4 @@ fun InfoRow(label: String, value: String) {
         Text(value, style = MaterialTheme.typography.bodyMedium)
     }
 }
+

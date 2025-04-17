@@ -11,7 +11,7 @@ import androidx.compose.runtime.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.famlinks.data.local.GuestManager
-import com.example.famlinks.navigation.FamLinksApp
+import com.example.famlinks.ui.navigation.MainTabsScreen
 import com.example.famlinks.ui.auth.SignUpScreen
 import com.example.famlinks.ui.auth.WelcomeScreen
 import com.example.famlinks.ui.theme.FamLinksTheme
@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     else -> {
-                        FamLinksApp()
+                        MainTabsScreen()
                     }
                 }
             }

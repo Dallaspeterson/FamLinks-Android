@@ -29,7 +29,8 @@ import com.example.famlinks.data.remote.s3.S3Photo
 fun GalleryScreen(
     navController: NavController,
     viewModel: PhotoViewerViewModel,
-    galleryViewModel: GalleryViewModel
+    galleryViewModel: GalleryViewModel,
+    onPhotoClick: (Int) -> Unit
 ) {
     val context = LocalContext.current
     val photoList by galleryViewModel.photoList.collectAsState()
@@ -87,7 +88,7 @@ fun GalleryScreen(
                             .clickable {
                                 Log.d("GalleryScreen", "🖼️ Tapped image $index")
                                 viewModel.setPhotos(photoList)
-                                navController.navigate("photoViewer/$index")
+                                onPhotoClick(index)
                             }
                     ) {
                         val painter = rememberAsyncImagePainter(
