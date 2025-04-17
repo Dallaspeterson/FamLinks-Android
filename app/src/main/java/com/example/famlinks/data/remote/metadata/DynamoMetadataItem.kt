@@ -4,12 +4,10 @@ import com.amazonaws.mobileconnectors.dynamodbv2.dynamodbmapper.*
 
 @DynamoDBTable(tableName = "PhotoMetadata")
 class DynamoMetadataItem {
-    @get:DynamoDBHashKey(attributeName = "identityId")
-    @set:DynamoDBHashKey(attributeName = "identityId")
+    @DynamoDBHashKey(attributeName = "identityId")
     var identityId: String? = null
 
-    @get:DynamoDBRangeKey(attributeName = "photoKey")
-    @set:DynamoDBRangeKey(attributeName = "photoKey")
+    @DynamoDBRangeKey(attributeName = "photoKey")
     var photoKey: String? = null
 
     @DynamoDBAttribute
@@ -21,3 +19,4 @@ class DynamoMetadataItem {
     @DynamoDBAttribute
     var longitude: Double? = null
 }
+

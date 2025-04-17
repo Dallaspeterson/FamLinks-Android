@@ -11,24 +11,17 @@ import android.content.Context
 
 object MetadataUploader {
 
-    suspend fun uploadMetadata(context: Context, metadata: PhotoMetadata) = withContext(Dispatchers.IO) {
+    suspend fun uploadMetadata(context: Context, item: DynamoMetadataItem) = withContext(Dispatchers.IO) {
         try {
             val credentials = GuestCredentialsProvider.getCredentialsProvider(context)
             val dynamoDBClient = AmazonDynamoDBClient(credentials)
             val mapper = DynamoDBMapper(dynamoDBClient)
 
-            val item = DynamoMetadataItem().apply {
-                identityId = metadata.identityId
-                photoKey = metadata.photoKey
-                timestamp = metadata.timestamp
-                latitude = metadata.latitude
-                longitude = metadata.longitude
-            }
-
             mapper.save(item, DynamoDBMapperConfig.DEFAULT)
-            Log.d("MetadataUploader", "Metadata uploaded for ${metadata.photoKey}")
+            Log.d("MetadataUploader", "✅ Metadata uploaded for ${item.photoKey}")
         } catch (e: Exception) {
-            Log.e("MetadataUploader", "Failed to upload metadata", e)
+            Log.e("MetadataUploader", "❌ Failed to upload metadata", e)
         }
     }
 }
+

@@ -8,12 +8,10 @@ import android.os.Build
 import android.util.Log
 import android.net.Uri
 import android.widget.Toast
-import android.content.Context
 import androidx.annotation.RequiresApi
 import androidx.camera.core.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -32,11 +30,11 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
+import com.example.famlinks.data.remote.metadata.DynamoMetadataItem
 import com.example.famlinks.data.remote.metadata.MetadataUploader
-import com.example.famlinks.data.remote.metadata.PhotoMetadata
 import com.example.famlinks.viewmodel.CameraViewModel
 import com.example.famlinks.data.remote.s3.S3Uploader
+import com.example.famlinks.util.GuestCredentialsProvider
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.Dispatchers
@@ -58,7 +56,6 @@ fun CameraScreen() {
 
     val coroutineScope = rememberCoroutineScope()
     var imageCapture by remember { mutableStateOf(ImageCapture.Builder().build()) }
-    val guestUUID by remember { mutableStateOf(AppPreferences.getGuestId(context) ?: "") }
     var cameraSessionKey by remember { mutableStateOf(UUID.randomUUID().toString()) }
 
     val cameraViewModel: CameraViewModel = viewModel()
@@ -72,8 +69,9 @@ fun CameraScreen() {
         CameraSelector.Builder().requireLensFacing(lensFacing).build()
     }
 
+    var triggerFlashOverlay by remember { mutableStateOf(false) }
     val flashAlpha by animateFloatAsState(
-        targetValue = if (flashEnabled) 0.9f else 0f,
+        targetValue = if (triggerFlashOverlay) 0.9f else 0f,
         animationSpec = tween(100),
         label = "flashAlpha"
     )
@@ -156,12 +154,44 @@ fun CameraScreen() {
                             .addOnFailureListener { continuation.resume(null) }
                     }
 
+                    val identityId = withContext(Dispatchers.IO) {
+                        GuestCredentialsProvider.getIdentityId(context)
+                    }
+
                     if (isFrontCamera) {
-                        if (flashEnabled) delay(750)
+                        if (flashEnabled) {
+                            triggerFlashOverlay = true
+                            delay(700)
+                            triggerFlashOverlay = false
+                        }
                         val bitmap = PreviewHolder.captureBitmap()
                         if (bitmap != null) {
                             val uri = saveBitmapAsPhoto(bitmap)
-                            if (uri != null) cameraViewModel.setLastPhotoUri(uri)
+                            if (uri != null) {
+                                cameraViewModel.setLastPhotoUri(uri)
+                                val photoFile = File(uri.path ?: return@launch)
+
+                                withContext(Dispatchers.IO) {
+                                    if (!photoFile.exists()) {
+                                        Log.e("CameraScreen", "❌ Front camera file not found: ${photoFile.absolutePath}")
+                                        return@withContext
+                                    }
+                                    val success = S3Uploader.uploadPhoto(context, photoFile)
+                                    Log.i("CameraScreen", "Front camera upload success: $success")
+
+                                    if (success) {
+                                        val metadataItem = DynamoMetadataItem().apply {
+                                            this.identityId = identityId
+                                            this.photoKey = "users/$identityId/${photoFile.name}"
+                                            this.timestamp = System.currentTimeMillis()
+                                            this.latitude = currentLocation?.latitude
+                                            this.longitude = currentLocation?.longitude
+                                        }
+
+                                        MetadataUploader.uploadMetadata(context, metadataItem)
+                                    }
+                                }
+                            }
                         } else {
                             Toast.makeText(context, "Capture failed", Toast.LENGTH_SHORT).show()
                         }
@@ -198,16 +228,16 @@ fun CameraScreen() {
                                                 return@withContext
                                             }
                                             val success = S3Uploader.uploadPhoto(context, photoFile)
-                                            Log.i("CameraScreen", "Upload success: $success")
+                                            Log.i("CameraScreen", "Back camera upload success: $success")
 
                                             if (success) {
-                                                val metadataItem = PhotoMetadata(
-                                                    identityId = guestUUID,
-                                                    photoKey = "users/$guestUUID/${photoFile.name}",
-                                                    timestamp = System.currentTimeMillis(),
-                                                    latitude = currentLocation?.latitude,
-                                                    longitude = currentLocation?.longitude
-                                                )
+                                                val metadataItem = DynamoMetadataItem().apply {
+                                                    this.identityId = identityId
+                                                    this.photoKey = "users/$identityId/${photoFile.name}"
+                                                    this.timestamp = System.currentTimeMillis()
+                                                    this.latitude = currentLocation?.latitude
+                                                    this.longitude = currentLocation?.longitude
+                                                }
                                                 MetadataUploader.uploadMetadata(context, metadataItem)
                                             }
                                         }
@@ -220,24 +250,6 @@ fun CameraScreen() {
             }
         ) {
             Icon(Icons.Default.CameraAlt, contentDescription = "Capture")
-        }
-
-        lastPhotoUri?.let { uri ->
-            IconButton(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(24.dp)
-                    .size(56.dp),
-                onClick = {
-                    // Optional: open gallery tab
-                }
-            ) {
-                Image(
-                    painter = rememberAsyncImagePainter(uri),
-                    contentDescription = "Last photo",
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
         }
 
         if (flashAlpha > 0f) {

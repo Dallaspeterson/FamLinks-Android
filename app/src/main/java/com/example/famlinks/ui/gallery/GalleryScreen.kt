@@ -64,30 +64,33 @@ fun GalleryScreen(
         }
 
         else -> {
-            val originalList = photoUrls
-            val reversedList = originalList.reversed()
+
+            val reversedList = photoUrls.reversed()
+            val photoObjects = reversedList.map { url ->
+                val key = url.substringBefore("?").substringAfter("users/")
+                com.example.famlinks.data.remote.s3.S3Photo(key = "users/$key", url = url)
+            }
 
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 128.dp),
                 contentPadding = PaddingValues(8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                itemsIndexed(reversedList) { _, url ->
-                    val originalIndex = originalList.indexOf(url)
+                itemsIndexed(photoObjects) { index, photo ->
                     Box(
                         modifier = Modifier
                             .padding(4.dp)
                             .fillMaxWidth()
                             .aspectRatio(1f)
                             .clickable {
-                                Log.d("GalleryScreen", "🖼️ Tapped image $originalIndex")
-                                viewModel.setPhotos(originalList)
-                                navController.navigate("photoViewer/$originalIndex")
+                                Log.d("GalleryScreen", "🖼️ Tapped image $index")
+                                viewModel.setPhotos(photoObjects)
+                                navController.navigate("photoViewer/$index")
                             }
                     ) {
                         val painter = rememberAsyncImagePainter(
                             ImageRequest.Builder(context)
-                                .data(url)
+                                .data(photo.url)
                                 .crossfade(true)
                                 .build()
                         )

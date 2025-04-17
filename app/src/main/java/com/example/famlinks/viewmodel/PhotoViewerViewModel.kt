@@ -3,18 +3,15 @@ package com.example.famlinks.viewmodel
 
 import android.content.Context
 import android.util.Log
-import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.amazonaws.mobileconnectors.dynamodbv2.dynamodbmapper.DynamoDBMapper
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import com.example.famlinks.data.remote.metadata.DynamoMetadataItem
+import com.example.famlinks.data.remote.s3.S3Photo
 import com.example.famlinks.util.GuestCredentialsProvider
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -31,17 +28,17 @@ class PhotoViewerViewModel : ViewModel() {
     private val _metadataMap = MutableStateFlow<Map<String, PhotoDisplayMetadata>>(emptyMap())
     val metadataMap: StateFlow<Map<String, PhotoDisplayMetadata>> = _metadataMap.asStateFlow()
 
-    private val _photoList = MutableStateFlow<List<String>>(emptyList())
-    val photoList: StateFlow<List<String>> = _photoList.asStateFlow()
+    private val _photoList = MutableStateFlow<List<S3Photo>>(emptyList())
+    val photoList: StateFlow<List<S3Photo>> = _photoList.asStateFlow()
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
 
-    fun setPhotos(urls: List<String>) {
-        _photoList.value = urls
-        Log.d("PhotoViewerViewModel", "📷 Set ${urls.size} photo(s)")
+    fun setPhotos(photos: List<S3Photo>) {
+        _photoList.value = photos
+        Log.d("PhotoViewerViewModel", "📷 Set ${photos.size} photo(s)")
     }
 
-    fun getPhoto(index: Int): String? = _photoList.value.getOrNull(index)
+    fun getPhoto(index: Int): S3Photo? = _photoList.value.getOrNull(index)
 
     fun loadMetadata(context: Context, photoKey: String) {
         if (_metadataMap.value.containsKey(photoKey)) {
@@ -53,11 +50,17 @@ class PhotoViewerViewModel : ViewModel() {
             try {
                 Log.d("PhotoViewerViewModel", "📥 Loading metadata for key: $photoKey")
 
+                val identityId = GuestCredentialsProvider.getIdentityId(context)
+                val keyObject = DynamoMetadataItem().apply {
+                    this.identityId = identityId
+                    this.photoKey = photoKey
+                }
+
                 val credentials = GuestCredentialsProvider.getCredentialsProvider(context)
                 val dynamoDBClient = AmazonDynamoDBClient(credentials)
                 val mapper = DynamoDBMapper(dynamoDBClient)
 
-                val item = mapper.load(DynamoMetadataItem::class.java, photoKey)
+                val item = mapper.load(DynamoMetadataItem::class.java, identityId, photoKey)
 
                 if (item != null) {
                     val dateTaken = item.timestamp?.let { dateFormat.format(Date(it)) } ?: "Unknown Date"
@@ -70,8 +73,8 @@ class PhotoViewerViewModel : ViewModel() {
 
                     val metadata = PhotoDisplayMetadata(
                         dateTaken = dateTaken,
-                        fileSize = "Unknown",     // Optional: Replace if stored
-                        resolution = "Unknown",   // Optional: Replace if stored
+                        fileSize = "Unknown",
+                        resolution = "Unknown",
                         location = location
                     )
 

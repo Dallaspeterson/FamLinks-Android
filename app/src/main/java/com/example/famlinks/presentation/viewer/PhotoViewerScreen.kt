@@ -25,6 +25,7 @@ import coil.request.ImageRequest
 import com.example.famlinks.R
 import com.example.famlinks.viewmodel.PhotoDisplayMetadata
 import com.example.famlinks.viewmodel.PhotoViewerViewModel
+import com.example.famlinks.data.remote.s3.S3Photo
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -64,9 +65,8 @@ fun PhotoViewerScreen(
                 actions = {
                     IconButton(onClick = {
                         showMetadata = true
-                        viewModel.getPhoto(pagerState.currentPage)?.let { url ->
-                            val key = url.substringBefore("?").substringAfter("users/")
-                            viewModel.loadMetadata(context, key)
+                        viewModel.getPhoto(pagerState.currentPage)?.let { photo ->
+                            viewModel.loadMetadata(context, photo.key)
                         }
                     }) {
                         Icon(Icons.Filled.Info, contentDescription = "Photo Info")
@@ -86,13 +86,13 @@ fun PhotoViewerScreen(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
-                    val imageUrl = viewModel.getPhoto(page)
-                    Log.d("PhotoViewerScreen", "Displaying URL: $imageUrl")
+                    val photo = viewModel.getPhoto(page)
+                    Log.d("PhotoViewerScreen", "Displaying URL: ${photo?.url}")
 
-                    imageUrl?.let {
+                    photo?.let {
                         AsyncImage(
                             model = ImageRequest.Builder(context)
-                                .data(it)
+                                .data(it.url)
                                 .crossfade(true)
                                 .error(R.drawable.image_load_error)
                                 .build(),
@@ -114,8 +114,8 @@ fun PhotoViewerScreen(
             }
 
             if (showMetadata) {
-                viewModel.getPhoto(pagerState.currentPage)?.let { url ->
-                    metadataMap[url]?.let { metadata ->
+                viewModel.getPhoto(pagerState.currentPage)?.let { photo ->
+                    metadataMap[photo.key]?.let { metadata ->
                         PhotoMetadataSheet(metadata) { showMetadata = false }
                     }
                 }
@@ -132,10 +132,10 @@ fun PhotoMetadataSheet(metadata: PhotoDisplayMetadata, onDismiss: () -> Unit) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            InfoRow("📅 Date Taken", metadata.dateTaken)
-            InfoRow("📁 File Size", metadata.fileSize)
-            InfoRow("📐 Resolution", metadata.resolution)
-            InfoRow("📍 Location", metadata.location)
+            InfoRow("\uD83D\uDCC5 Date Taken", metadata.dateTaken)
+            InfoRow("\uD83D\uDCC1 File Size", metadata.fileSize)
+            InfoRow("\uD83D\uDCC0 Resolution", metadata.resolution)
+            InfoRow("\uD83D\uDCCD Location", metadata.location)
         }
     }
 }
@@ -147,5 +147,3 @@ fun InfoRow(label: String, value: String) {
         Text(value, style = MaterialTheme.typography.bodyMedium)
     }
 }
-
-
