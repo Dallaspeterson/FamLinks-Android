@@ -24,6 +24,8 @@ import com.example.famlinks.data.remote.s3.S3GalleryLoader
 import com.example.famlinks.viewmodel.GalleryViewModel
 import com.example.famlinks.viewmodel.PhotoViewerViewModel
 import com.example.famlinks.data.remote.s3.S3Photo
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 
 @Composable
 fun GalleryScreen(
@@ -35,33 +37,26 @@ fun GalleryScreen(
     val context = LocalContext.current
     val photoList by galleryViewModel.photoList.collectAsState()
     var isLoading by remember { mutableStateOf(!galleryViewModel.isLoaded()) }
+    var refreshing by remember { mutableStateOf(false) }
+
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = refreshing)
+
+    fun refreshGallery() {
+        refreshing = true
+        galleryViewModel.refreshGallery(context) {
+            refreshing = false
+        }
+    }
 
     LaunchedEffect(Unit) {
         if (!galleryViewModel.isLoaded()) {
-            try {
-                Log.d("GalleryScreen", "🛠 Initializing S3 client")
-                AwsS3Client.initialize(context)
-                Log.d("GalleryScreen", "✅ S3 initialized. Loading gallery...")
-                val urls = S3GalleryLoader.listPhotoUrls()
-
-                val reversedList = urls.reversed()
-                val photoObjects = reversedList.map { url ->
-                    val key = url.substringBefore("?").substringAfter("users/")
-                    S3Photo(key = "users/$key", url = url)
-                }
-
-                galleryViewModel.setPhotoList(photoObjects)
-                Log.d("GalleryScreen", "📷 Loaded ${photoObjects.size} images.")
-            } catch (e: Exception) {
-                Log.e("GalleryScreen", "❌ Failed to load gallery", e)
-            } finally {
-                isLoading = false
-            }
+            isLoading = true
+            refreshGallery()
         }
     }
 
     when {
-        isLoading -> {
+        isLoading && photoList.isEmpty() -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
@@ -74,36 +69,41 @@ fun GalleryScreen(
         }
 
         else -> {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 128.dp),
-                contentPadding = PaddingValues(8.dp),
-                modifier = Modifier.fillMaxSize()
+            SwipeRefresh(
+                state = swipeRefreshState,
+                onRefresh = { refreshGallery() }
             ) {
-                itemsIndexed(photoList) { index, photo ->
-                    Box(
-                        modifier = Modifier
-                            .padding(4.dp)
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
-                            .clickable {
-                                Log.d("GalleryScreen", "🖼️ Tapped image $index")
-                                viewModel.setPhotos(photoList)
-                                onPhotoClick(index)
-                            }
-                    ) {
-                        val painter = rememberAsyncImagePainter(
-                            ImageRequest.Builder(context)
-                                .data(photo.url)
-                                .crossfade(true)
-                                .build()
-                        )
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 128.dp),
+                    contentPadding = PaddingValues(8.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    itemsIndexed(photoList) { index, photo ->
+                        Box(
+                            modifier = Modifier
+                                .padding(4.dp)
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clickable {
+                                    Log.d("GalleryScreen", "🖼️ Tapped image $index")
+                                    viewModel.setPhotos(photoList)
+                                    onPhotoClick(index)
+                                }
+                        ) {
+                            val painter = rememberAsyncImagePainter(
+                                ImageRequest.Builder(context)
+                                    .data(photo.url)
+                                    .crossfade(true)
+                                    .build()
+                            )
 
-                        Image(
-                            painter = painter,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
+                            Image(
+                                painter = painter,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
                     }
                 }
             }

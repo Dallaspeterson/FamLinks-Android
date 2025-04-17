@@ -114,6 +114,7 @@ dependencies {
     implementation(libs.aws.mobile.client)
     implementation(libs.aws.ddb.mapper)
     implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.30.1")
 
 
 

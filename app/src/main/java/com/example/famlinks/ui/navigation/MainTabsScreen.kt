@@ -61,7 +61,10 @@ fun MainTabsScreen() {
                 tabs.forEach { screen ->
                     NavigationBarItem(
                         selected = currentTab == screen.route,
-                        onClick = { currentTab = screen.route },
+                        onClick = {
+                            currentTab = screen.route
+                            showPhotoViewer = false // closes viewer when switching tabs
+                        },
                         icon = screen.icon,
                         label = { Text(screen.label) }
                     )
