@@ -11,15 +11,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import java.io.File
+import com.example.famlinks.data.upload.UploadManager
+import com.example.famlinks.util.AppPreferences
 
 class PendingUploadsViewModel : ViewModel() {
 
     private val _pendingUploads = MutableStateFlow<List<PendingUploadItem>>(emptyList())
     val pendingUploads: StateFlow<List<PendingUploadItem>> = _pendingUploads
 
-    fun addItem(item: PendingUploadItem, context: Context? = null) {
+    fun addItem(item: PendingUploadItem, context: Context) {
         _pendingUploads.update { it + item }
-        context?.let { saveToDisk(it) }
+        saveToDisk(context)
+
+        // Automatically start upload after item is added
+        val allowCellular = AppPreferences.isDataAllowed(context)
+        UploadManager.startUploading(context, this, allowCellular)
     }
 
     fun markAsUploading(id: String, context: Context? = null) {
@@ -49,11 +55,11 @@ class PendingUploadsViewModel : ViewModel() {
         context?.let { saveToDisk(it) }
     }
 
-    fun removeItem(id: String, context: Context? = null) {
+    fun removeItem(id: String, context: Context) {
         _pendingUploads.update { list ->
             list.filterNot { it.id == id }
         }
-        context?.let { saveToDisk(it) }
+        saveToDisk(context)
     }
 
     fun saveToDisk(context: Context) {

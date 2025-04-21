@@ -123,13 +123,17 @@ fun CameraScreen(
                         Icon(Icons.Default.FlashOn, contentDescription = "Toggle Flash", tint = Color.White)
                         if (!flashEnabled) {
                             Box(
-                                Modifier.matchParentSize().padding(6.dp),
+                                Modifier
+                                    .matchParentSize()
+                                    .padding(6.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Divider(
                                     thickness = 2.dp,
                                     color = Color.White,
-                                    modifier = Modifier.fillMaxWidth().rotate(45f)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .rotate(45f)
                                 )
                             }
                         }
@@ -201,6 +205,7 @@ fun CameraScreen(
                         if (!saved) return@launch
                     }
 
+                    // ✅ Save to pending uploads
                     pendingUploadsViewModel.addItem(
                         PendingUploadItem(
                             file = photoFile,
