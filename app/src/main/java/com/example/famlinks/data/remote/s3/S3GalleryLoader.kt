@@ -1,19 +1,21 @@
 // File: data/remote/s3/S3GalleryLoader.kt
 package com.example.famlinks.data.remote.s3
 
+import android.content.Context
 import android.util.Log
+import com.amazonaws.services.s3.model.ListObjectsRequest
+import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest
+import com.amazonaws.services.s3.model.S3ObjectSummary
+import com.example.famlinks.util.UserIdProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.concurrent.TimeUnit
-import com.amazonaws.services.s3.model.ListObjectsRequest
-import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest
-import com.amazonaws.services.s3.model.S3ObjectSummary
 
 object S3GalleryLoader {
-    suspend fun listPhotoUrls(): List<String> = withContext(Dispatchers.IO) {
+    suspend fun listPhotoUrls(context: Context): List<String> = withContext(Dispatchers.IO) {
         val s3 = AwsS3Client.getClient() ?: return@withContext emptyList()
-        val identityId = AwsS3Client.getIdentityId() ?: return@withContext emptyList()
+        val identityId = UserIdProvider.getUserId(context)
         val bucket = AwsS3Client.getBucketName()
 
         Log.d("S3GalleryLoader", "🪣 Using bucket: $bucket")
@@ -39,30 +41,20 @@ object S3GalleryLoader {
                 }
             } while (listing != null)
 
-            Log.d("S3GalleryLoader", "📦 Found ${objects.size} objects:")
-            objects.forEach { obj ->
-                Log.d("S3GalleryLoader", "🧠 ${obj.key}")
-            }
-
             val photoUrls = objects
-                .filter { summary ->
-                    val valid = summary.key.endsWith(".jpg", ignoreCase = true)
-                            && !summary.key.endsWith(".keep")
-                    Log.d("S3GalleryLoader", "🔎 Checking key: ${summary.key} -> valid: $valid")
-                    valid
-                }
+                .filter { it.key.endsWith(".jpg", ignoreCase = true) && !it.key.endsWith(".keep") }
                 .map { obj ->
                     val expiration = Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1))
-                    val presignedRequest = GeneratePresignedUrlRequest(bucket, obj.key)
+                    val requestUrl = GeneratePresignedUrlRequest(bucket, obj.key)
                         .withMethod(com.amazonaws.HttpMethod.GET)
                         .withExpiration(expiration)
 
-                    s3.generatePresignedUrl(presignedRequest).toString().also {
-                        Log.d("S3GalleryLoader", "🌐 Generated URL: $it")
+                    s3.generatePresignedUrl(requestUrl).toString().also {
+                        Log.d("S3GalleryLoader", "🌐 URL: $it")
                     }
                 }
 
-            Log.d("S3GalleryLoader", "✅ Returning ${photoUrls.size} image URLs")
+            Log.d("S3GalleryLoader", "✅ Loaded ${photoUrls.size} image URLs")
             photoUrls
 
         } catch (e: Exception) {
@@ -71,5 +63,3 @@ object S3GalleryLoader {
         }
     }
 }
-
-

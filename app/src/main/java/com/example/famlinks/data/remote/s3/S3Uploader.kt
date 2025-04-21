@@ -4,6 +4,7 @@ package com.example.famlinks.data.remote.s3
 import android.content.Context
 import android.util.Log
 import com.amazonaws.services.s3.model.PutObjectRequest
+import com.example.famlinks.util.UserIdProvider
 import java.io.File
 
 object S3Uploader {
@@ -16,10 +17,7 @@ object S3Uploader {
                 return false
             }
 
-            val identityId = AwsS3Client.getIdentityId() ?: run {
-                Log.e("S3Uploader", "❌ Identity ID not set")
-                return false
-            }
+            val identityId = UserIdProvider.getUserId(context)
 
             val key = "users/$identityId/${file.name}"
             Log.i("S3Uploader", "📤 Uploading to bucket: $BUCKET_NAME, Key: $key")
@@ -35,4 +33,3 @@ object S3Uploader {
         }
     }
 }
-

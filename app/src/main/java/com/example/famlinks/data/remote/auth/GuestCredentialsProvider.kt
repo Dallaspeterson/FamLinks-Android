@@ -23,6 +23,7 @@ object GuestCredentialsProvider {
     var identityId: String? = null
         private set
 
+    // ⚙️ Try to initialize AWS credentials + ensure S3 folder
     suspend fun getCredentialsProvider(context: Context): CognitoCachingCredentialsProvider = withContext(Dispatchers.IO) {
         val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -32,30 +33,43 @@ object GuestCredentialsProvider {
             REGION
         )
 
-        identityId = provider.identityId.also {
-            Log.i("GuestCredentials", "✅ Got Identity ID: $it")
-            prefs.edit().putString(KEY_IDENTITY_ID, it).apply()
-        }
-
         try {
+            // Try to get Cognito Identity ID
+            identityId = provider.identityId.also {
+                Log.i("GuestCredentials", "✅ Got Identity ID: $it")
+                prefs.edit().putString(KEY_IDENTITY_ID, it).apply()
+                UserIdProvider.saveCloudUserId(context, it)
+            }
+
+            // Optional: ensure S3 folder exists
             val s3 = AmazonS3Client(provider)
             val folderKey = "users/$identityId/.keep"
             val emptyStream = ByteArrayInputStream(ByteArray(0))
             val metadata = ObjectMetadata().apply { contentLength = 0 }
-
             val putRequest = PutObjectRequest(BUCKET_NAME, folderKey, emptyStream, metadata)
             s3.putObject(putRequest)
 
             Log.i("GuestCredentials", "📂 Ensured S3 folder exists: $folderKey")
         } catch (e: Exception) {
-            Log.w("GuestCredentials", "⚠️ Failed to create .keep file", e)
+            Log.w("GuestCredentials", "⚠️ Failed to get Cognito identity or create .keep file (offline?)", e)
+            identityId = null // fall back will be triggered in getIdentityId
         }
 
         return@withContext provider
     }
 
+    // 🧠 Get identity ID with full offline fallback
     suspend fun getIdentityId(context: Context): String = withContext(Dispatchers.IO) {
-        identityId ?: getCredentialsProvider(context).identityId
+        identityId ?: runCatching {
+            getCredentialsProvider(context).identityId
+        }.onSuccess {
+            identityId = it
+        }.onFailure {
+            Log.w("GuestCredentials", "⚠️ Falling back to local UUID for identity", it)
+            identityId = UserIdProvider.getUserId(context)
+        }
+
+        return@withContext identityId ?: UserIdProvider.getUserId(context)
     }
 
     fun getIdentityIdFromPrefs(context: Context): String? {

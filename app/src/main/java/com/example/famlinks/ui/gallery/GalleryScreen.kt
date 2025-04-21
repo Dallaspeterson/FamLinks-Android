@@ -19,11 +19,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
-import com.example.famlinks.data.remote.s3.AwsS3Client
-import com.example.famlinks.data.remote.s3.S3GalleryLoader
 import com.example.famlinks.viewmodel.GalleryViewModel
 import com.example.famlinks.viewmodel.PhotoViewerViewModel
 import com.example.famlinks.data.remote.s3.S3Photo
+import com.example.famlinks.model.PhotoFilterType
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 
@@ -32,7 +31,8 @@ fun GalleryScreen(
     navController: NavController,
     viewModel: PhotoViewerViewModel,
     galleryViewModel: GalleryViewModel,
-    onPhotoClick: (Int) -> Unit
+    onPhotoClick: (Int) -> Unit,
+    filterType: PhotoFilterType = PhotoFilterType.ALL
 ) {
     val context = LocalContext.current
     val photoList by galleryViewModel.photoList.collectAsState()
@@ -43,12 +43,12 @@ fun GalleryScreen(
 
     fun refreshGallery() {
         refreshing = true
-        galleryViewModel.refreshGallery(context) {
+        galleryViewModel.refreshGallery(context, filterType) {
             refreshing = false
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(filterType) {
         if (!galleryViewModel.isLoaded()) {
             isLoading = true
             refreshGallery()
@@ -110,3 +110,4 @@ fun GalleryScreen(
         }
     }
 }
+

@@ -1,14 +1,11 @@
 // File: ui/camera/CameraScreen.kt
 package com.example.famlinks.ui.camera
 
-import com.example.famlinks.util.AppPreferences
 import android.graphics.Bitmap
 import android.location.Location
 import android.os.Build
-import android.util.Log
 import android.net.Uri
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.camera.core.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -31,19 +28,13 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.famlinks.data.remote.metadata.DynamoMetadataItem
-import com.example.famlinks.data.remote.metadata.MetadataUploader
 import com.example.famlinks.viewmodel.CameraViewModel
-import com.example.famlinks.data.remote.s3.S3Uploader
-import com.example.famlinks.util.GuestCredentialsProvider
 import com.example.famlinks.viewmodel.GalleryViewModel
+import com.example.famlinks.viewmodel.PendingUploadsViewModel
+import com.example.famlinks.model.PendingUploadItem
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -64,6 +55,7 @@ fun CameraScreen(
     var cameraSessionKey by remember { mutableStateOf(UUID.randomUUID().toString()) }
 
     val cameraViewModel: CameraViewModel = viewModel()
+    val pendingUploadsViewModel: PendingUploadsViewModel = viewModel()
     val lensFacing by cameraViewModel.lensFacing.collectAsState()
     val flashEnabled by cameraViewModel.flashEnabled.collectAsState()
     val lastPhotoUri by cameraViewModel.lastPhotoUri.collectAsState()
@@ -102,7 +94,11 @@ fun CameraScreen(
         return file.toUri()
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
         CameraPreview(
             modifier = Modifier.fillMaxSize(),
             imageCapture = imageCapture,
@@ -127,17 +123,13 @@ fun CameraScreen(
                         Icon(Icons.Default.FlashOn, contentDescription = "Toggle Flash", tint = Color.White)
                         if (!flashEnabled) {
                             Box(
-                                Modifier
-                                    .matchParentSize()
-                                    .padding(6.dp),
+                                Modifier.matchParentSize().padding(6.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Divider(
                                     thickness = 2.dp,
                                     color = Color.White,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .rotate(45f)
+                                    modifier = Modifier.fillMaxWidth().rotate(45f)
                                 )
                             }
                         }
@@ -159,9 +151,10 @@ fun CameraScreen(
                             .addOnFailureListener { continuation.resume(null) }
                     }
 
-                    val identityId = withContext(Dispatchers.IO) {
-                        GuestCredentialsProvider.getIdentityId(context)
-                    }
+                    val timestamp = System.currentTimeMillis()
+                    val filename = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US).format(Date(timestamp)) + ".jpg"
+                    val mediaDir = context.getExternalFilesDir("FamLinks")?.apply { mkdirs() }
+                    val photoFile = File(mediaDir, filename)
 
                     if (isFrontCamera) {
                         if (flashEnabled) {
@@ -171,45 +164,14 @@ fun CameraScreen(
                         }
                         val bitmap = PreviewHolder.captureBitmap()
                         if (bitmap != null) {
-                            val uri = saveBitmapAsPhoto(bitmap)
-                            if (uri != null) {
-                                cameraViewModel.setLastPhotoUri(uri)
-                                val photoFile = File(uri.path ?: return@launch)
-
-                                withContext(Dispatchers.IO) {
-                                    if (!photoFile.exists()) {
-                                        Log.e("CameraScreen", "❌ Front camera file not found: ${photoFile.absolutePath}")
-                                        return@withContext
-                                    }
-                                    val success = S3Uploader.uploadPhoto(context, photoFile)
-                                    Log.i("CameraScreen", "Front camera upload success: $success")
-
-                                    if (success) {
-                                        val metadataItem = DynamoMetadataItem().apply {
-                                            this.identityId = identityId
-                                            this.photoKey = "users/$identityId/${photoFile.name}"
-                                            this.timestamp = System.currentTimeMillis()
-                                            this.latitude = currentLocation?.latitude
-                                            this.longitude = currentLocation?.longitude
-                                        }
-
-                                        MetadataUploader.uploadMetadata(context, metadataItem)
-                                    }
-                                    withContext(Dispatchers.Main) {
-                                        galleryViewModel.refreshGallery(context)
-                                    }
-                                }
+                            FileOutputStream(photoFile).use { out ->
+                                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
                             }
                         } else {
                             Toast.makeText(context, "Capture failed", Toast.LENGTH_SHORT).show()
+                            return@launch
                         }
                     } else {
-                        val mediaDir = context.getExternalFilesDir("FamLinks")?.apply { mkdirs() }
-                        val photoFile = File(
-                            mediaDir,
-                            SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US).format(System.currentTimeMillis()) + ".jpg"
-                        )
-
                         val metadata = ImageCapture.Metadata().apply {
                             location = currentLocation
                         }
@@ -218,45 +180,39 @@ fun CameraScreen(
                             .setMetadata(metadata)
                             .build()
 
-                        imageCapture.takePicture(
-                            outputOptions,
-                            ContextCompat.getMainExecutor(context),
-                            object : ImageCapture.OnImageSavedCallback {
-                                override fun onError(exc: ImageCaptureException) {
-                                    Toast.makeText(context, "Capture failed. Try turning off flash.", Toast.LENGTH_SHORT).show()
-                                    cameraViewModel.setFlash(false)
-                                }
+                        val saved = suspendCancellableCoroutine<Boolean> { continuation ->
+                            imageCapture.takePicture(
+                                outputOptions,
+                                ContextCompat.getMainExecutor(context),
+                                object : ImageCapture.OnImageSavedCallback {
+                                    override fun onError(exc: ImageCaptureException) {
+                                        Toast.makeText(context, "Capture failed. Try turning off flash.", Toast.LENGTH_SHORT).show()
+                                        cameraViewModel.setFlash(false)
+                                        continuation.resume(false)
+                                    }
 
-                                @RequiresApi(Build.VERSION_CODES.O)
-                                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                    coroutineScope.launch {
-                                        withContext(Dispatchers.IO) {
-                                            if (!photoFile.exists()) {
-                                                Log.e("CameraScreen", "❌ File not found: ${photoFile.absolutePath}")
-                                                return@withContext
-                                            }
-                                            val success = S3Uploader.uploadPhoto(context, photoFile)
-                                            Log.i("CameraScreen", "Back camera upload success: $success")
-
-                                            if (success) {
-                                                val metadataItem = DynamoMetadataItem().apply {
-                                                    this.identityId = identityId
-                                                    this.photoKey = "users/$identityId/${photoFile.name}"
-                                                    this.timestamp = System.currentTimeMillis()
-                                                    this.latitude = currentLocation?.latitude
-                                                    this.longitude = currentLocation?.longitude
-                                                }
-                                                MetadataUploader.uploadMetadata(context, metadataItem)
-                                            }
-                                            withContext(Dispatchers.Main) {
-                                                galleryViewModel.refreshGallery(context)
-                                            }
-                                        }
+                                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                                        continuation.resume(true)
                                     }
                                 }
-                            }
-                        )
+                            )
+                        }
+
+                        if (!saved) return@launch
                     }
+
+                    pendingUploadsViewModel.addItem(
+                        PendingUploadItem(
+                            file = photoFile,
+                            localPath = photoFile.absolutePath,
+                            timestamp = timestamp,
+                            latitude = currentLocation?.latitude,
+                            longitude = currentLocation?.longitude
+                        ),
+                        context = context
+                    )
+
+                    Toast.makeText(context, "Photo saved to pending uploads", Toast.LENGTH_SHORT).show()
                 }
             }
         ) {
@@ -273,3 +229,4 @@ fun CameraScreen(
         }
     }
 }
+
