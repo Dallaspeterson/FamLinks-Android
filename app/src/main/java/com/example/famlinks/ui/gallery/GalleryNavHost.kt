@@ -63,7 +63,8 @@ fun GalleryNavHost(
         composable("pendingUploads") {
             PendingUploadsScreen(
                 navController = navController,
-                pendingUploadsViewModel = pendingUploadsViewModel
+                pendingUploadsViewModel = pendingUploadsViewModel,
+                galleryViewModel = galleryViewModel
             )
         }
     }

@@ -22,10 +22,6 @@ class PendingUploadsViewModel : ViewModel() {
     fun addItem(item: PendingUploadItem, context: Context) {
         _pendingUploads.update { it + item }
         saveToDisk(context)
-
-        // Automatically start upload after item is added
-        val allowCellular = AppPreferences.isDataAllowed(context)
-        UploadManager.startUploading(context, this, allowCellular)
     }
 
     fun markAsUploading(id: String, context: Context? = null) {

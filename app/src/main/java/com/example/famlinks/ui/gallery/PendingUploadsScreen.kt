@@ -19,18 +19,28 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.famlinks.model.UploadStatus
 import com.example.famlinks.util.AppPreferences
+import com.example.famlinks.viewmodel.GalleryViewModel
 import com.example.famlinks.viewmodel.PendingUploadsViewModel
 
 @Composable
 fun PendingUploadsScreen(
     navController: NavController,
-    pendingUploadsViewModel: PendingUploadsViewModel
+    pendingUploadsViewModel: PendingUploadsViewModel,
+    galleryViewModel: GalleryViewModel
 ) {
     val context = LocalContext.current
     val pendingUploads by pendingUploadsViewModel.pendingUploads.collectAsState()
 
     LaunchedEffect(Unit) {
         pendingUploadsViewModel.loadFromDisk(context)
+
+        val allowCellular = AppPreferences.isDataAllowed(context)
+        com.example.famlinks.data.upload.UploadManager.startUploading(
+            context = context,
+            viewModel = pendingUploadsViewModel,
+            allowCellular = allowCellular,
+            galleryViewModel = galleryViewModel
+        )
     }
 
     Column(

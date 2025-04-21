@@ -22,8 +22,10 @@ object UploadManager {
     fun startUploading(
         context: Context,
         viewModel: PendingUploadsViewModel,
-        allowCellular: Boolean
-    ) {
+        allowCellular: Boolean,
+        galleryViewModel: com.example.famlinks.viewmodel.GalleryViewModel
+    )
+    {
         if (uploadJob?.isActive == true) return // Already uploading
 
         uploadJob = CoroutineScope(Dispatchers.IO).launch {
@@ -59,6 +61,9 @@ object UploadManager {
 
                     viewModel.markAsUploaded(item.id)
                     viewModel.removeItem(item.id, context)
+
+                    galleryViewModel.markAsStale() // 👈 NEW: allow refresh
+
                     Log.i("UploadManager", "✅ Uploaded to S3: ${file.name}")
                 } else {
                     viewModel.markAsFailed(item.id)

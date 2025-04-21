@@ -5,9 +5,7 @@ import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -36,27 +34,37 @@ fun GalleryScreen(
 ) {
     val context = LocalContext.current
     val photoList by galleryViewModel.photoList.collectAsState()
-    var isLoading by remember { mutableStateOf(!galleryViewModel.isLoaded()) }
-    var refreshing by remember { mutableStateOf(false) }
+    val gridState = rememberLazyGridState()
 
+    var refreshing by remember { mutableStateOf(false) }
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = refreshing)
 
+    // 🔁 Initial load on filter change
+    LaunchedEffect(filterType) {
+        if (!galleryViewModel.isLoaded()) {
+            galleryViewModel.loadNextPage(context, filterType)
+        }
+    }
+
+    // 🔁 Swipe to refresh
     fun refreshGallery() {
         refreshing = true
-        galleryViewModel.refreshGallery(context, filterType) {
+        galleryViewModel.markAsStale()
+        galleryViewModel.loadNextPage(context, filterType) {
             refreshing = false
         }
     }
 
-    LaunchedEffect(filterType) {
-        if (!galleryViewModel.isLoaded()) {
-            isLoading = true
-            refreshGallery()
+    // 🔁 Detect scroll near bottom to load more
+    LaunchedEffect(gridState.firstVisibleItemIndex, photoList.size) {
+        val shouldLoadMore = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 >= photoList.size - 6
+        if (shouldLoadMore) {
+            galleryViewModel.loadNextPage(context, filterType)
         }
     }
 
     when {
-        isLoading && photoList.isEmpty() -> {
+        photoList.isEmpty() && refreshing -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
@@ -76,6 +84,7 @@ fun GalleryScreen(
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 128.dp),
                     contentPadding = PaddingValues(8.dp),
+                    state = gridState,
                     modifier = Modifier.fillMaxSize()
                 ) {
                     itemsIndexed(photoList) { index, photo ->
@@ -110,4 +119,3 @@ fun GalleryScreen(
         }
     }
 }
-

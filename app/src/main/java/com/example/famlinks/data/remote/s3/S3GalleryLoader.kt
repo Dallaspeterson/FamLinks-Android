@@ -3,63 +3,66 @@ package com.example.famlinks.data.remote.s3
 
 import android.content.Context
 import android.util.Log
-import com.amazonaws.services.s3.model.ListObjectsRequest
-import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest
+import com.amazonaws.services.s3.model.ListObjectsV2Request
 import com.amazonaws.services.s3.model.S3ObjectSummary
+import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest
 import com.example.famlinks.util.UserIdProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.concurrent.TimeUnit
 
+data class PageResult(
+    val photos: List<S3Photo>,
+    val nextToken: String? // null if you're done
+)
+
 object S3GalleryLoader {
-    suspend fun listPhotoUrls(context: Context): List<String> = withContext(Dispatchers.IO) {
-        val s3 = AwsS3Client.getClient() ?: return@withContext emptyList()
+
+    suspend fun loadPhotoPage(
+        context: Context,
+        maxKeys: Int = 50,
+        continuationToken: String? = null
+    ): PageResult = withContext(Dispatchers.IO) {
+        val s3 = AwsS3Client.getClient() ?: return@withContext PageResult(emptyList(), null)
         val identityId = UserIdProvider.getUserId(context)
         val bucket = AwsS3Client.getBucketName()
+        val prefix = "users/$identityId/"
 
-        Log.d("S3GalleryLoader", "🪣 Using bucket: $bucket")
-        Log.d("S3GalleryLoader", "🧍 Using identityId: $identityId")
+        Log.d("S3GalleryLoader", "📦 Loading photo page: max=$maxKeys, token=$continuationToken")
 
         try {
-            val prefix = "users/$identityId/"
-            Log.d("S3GalleryLoader", "📁 Looking in prefix: $prefix")
-
-            val request = ListObjectsRequest()
+            val request = ListObjectsV2Request()
                 .withBucketName(bucket)
                 .withPrefix(prefix)
+                .withMaxKeys(maxKeys)
+                .withContinuationToken(continuationToken)
 
-            val objects = mutableListOf<S3ObjectSummary>()
-            var listing = s3.listObjects(request)
+            val result = s3.listObjectsV2(request)
 
-            do {
-                objects.addAll(listing.objectSummaries)
-                listing = if (listing.isTruncated) {
-                    s3.listNextBatchOfObjects(listing)
-                } else {
-                    null
-                }
-            } while (listing != null)
-
-            val photoUrls = objects
+            val photos = result.objectSummaries
                 .filter { it.key.endsWith(".jpg", ignoreCase = true) && !it.key.endsWith(".keep") }
                 .map { obj ->
                     val expiration = Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1))
-                    val requestUrl = GeneratePresignedUrlRequest(bucket, obj.key)
-                        .withMethod(com.amazonaws.HttpMethod.GET)
-                        .withExpiration(expiration)
-
-                    s3.generatePresignedUrl(requestUrl).toString().also {
-                        Log.d("S3GalleryLoader", "🌐 URL: $it")
+                    val presignedUrl = s3.generatePresignedUrl(
+                        GeneratePresignedUrlRequest(bucket, obj.key)
+                            .withMethod(com.amazonaws.HttpMethod.GET)
+                            .withExpiration(expiration)
+                    )
+                    S3Photo(key = obj.key, url = presignedUrl.toString()).also {
+                        Log.d("S3GalleryLoader", "🖼️ ${it.key}")
                     }
                 }
 
-            Log.d("S3GalleryLoader", "✅ Loaded ${photoUrls.size} image URLs")
-            photoUrls
+            Log.d("S3GalleryLoader", "✅ Loaded page: ${photos.size} photos")
 
+            return@withContext PageResult(
+                photos = photos.reversed(), // Newest first
+                nextToken = result.nextContinuationToken
+            )
         } catch (e: Exception) {
-            Log.e("S3GalleryLoader", "❌ Failed to load gallery", e)
-            emptyList()
+            Log.e("S3GalleryLoader", "❌ Failed to load photo page", e)
+            return@withContext PageResult(emptyList(), null)
         }
     }
 }

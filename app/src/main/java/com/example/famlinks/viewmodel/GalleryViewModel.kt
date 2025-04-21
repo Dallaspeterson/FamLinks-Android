@@ -14,58 +14,73 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class GalleryViewModel : ViewModel() {
+
     private val _photoList = MutableStateFlow<List<S3Photo>>(emptyList())
     val photoList: StateFlow<List<S3Photo>> = _photoList
 
-    private val cachedPhotos = mutableMapOf<PhotoFilterType, List<S3Photo>>()
+    private val allPhotos = mutableListOf<S3Photo>()
+    private var continuationToken: String? = null
+    private var isLoading = false
+    private var isEndOfList = false
+    private var isInitialized = false
 
-    fun refreshGallery(
+    fun loadNextPage(
         context: Context,
         filter: PhotoFilterType = PhotoFilterType.ALL,
+        pageSize: Int = 50,
         onComplete: () -> Unit = {}
     ) {
+        if (isLoading || isEndOfList) return
+
         viewModelScope.launch {
+            isLoading = true
             try {
                 AwsS3Client.initialize(context)
-                val urls = S3GalleryLoader.listPhotoUrls(context)
-                val reversedList = urls.reversed()
-                val allPhotos = reversedList.map { url ->
-                    val key = url.substringBefore("?").substringAfter("users/")
-                    S3Photo(key = "users/$key", url = url)
-                }
 
-                val filtered = when (filter) {
-                    PhotoFilterType.ALL -> allPhotos
-                    PhotoFilterType.MOMENTS -> allPhotos.filter { it.key.contains("moment") }
-                    PhotoFilterType.MEMORIES -> allPhotos.filter { it.key.contains("memory") }
-                    PhotoFilterType.PORTALS -> allPhotos.filter { it.key.contains("portal") }
-                }
+                val page = S3GalleryLoader.loadPhotoPage(
+                    context = context,
+                    maxKeys = pageSize,
+                    continuationToken = continuationToken
+                )
 
-                val currentCache = cachedPhotos[filter].orEmpty()
-
-                if (filtered.size > currentCache.size) {
-                    val newItems = filtered.subtract(currentCache.toSet())
-                    val updatedList = currentCache + newItems
-                    cachedPhotos[filter] = updatedList
-                    _photoList.value = updatedList
-                    Log.d("GalleryViewModel", "🆕 ${newItems.size} new photo(s) added.")
+                continuationToken = page.nextToken
+                if (page.photos.isEmpty()) {
+                    isEndOfList = true
+                    Log.d("GalleryViewModel", "📭 No more photos to load.")
                 } else {
-                    Log.d("GalleryViewModel", "✅ No new photos. Using cache.")
-                    _photoList.value = currentCache
+                    Log.d("GalleryViewModel", "📷 Loaded ${page.photos.size} photos")
+                    val newItems = page.photos.filter { it.key !in allPhotos.map { p -> p.key } }
+                    allPhotos.addAll(newItems)
+                    _photoList.value = applyFilter(allPhotos, filter)
                 }
+
+                isInitialized = true
             } catch (e: Exception) {
-                Log.e("GalleryViewModel", "❌ Failed to refresh photo list", e)
+                Log.e("GalleryViewModel", "❌ Failed to load photo page", e)
             } finally {
+                isLoading = false
                 onComplete()
             }
         }
     }
 
-    fun setPhotoList(list: List<S3Photo>, filter: PhotoFilterType = PhotoFilterType.ALL) {
-        cachedPhotos[filter] = list
-        _photoList.value = list
+    private fun applyFilter(photos: List<S3Photo>, filter: PhotoFilterType): List<S3Photo> {
+        return when (filter) {
+            PhotoFilterType.ALL -> photos
+            PhotoFilterType.MOMENTS -> photos.filter { it.key.contains("moment") }
+            PhotoFilterType.MEMORIES -> photos.filter { it.key.contains("memory") }
+            PhotoFilterType.PORTALS -> photos.filter { it.key.contains("portal") }
+        }
     }
 
-    fun isLoaded(): Boolean = _photoList.value.isNotEmpty()
+    fun isLoaded(): Boolean = isInitialized
+    fun markAsStale() {
+        continuationToken = null
+        isEndOfList = false
+        isInitialized = false
+        allPhotos.clear()
+        _photoList.value = emptyList()
+    }
 }
+
 
