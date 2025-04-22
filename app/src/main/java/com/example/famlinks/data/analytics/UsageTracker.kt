@@ -44,5 +44,9 @@ object UsageTracker {
             totalGB * (costPerGB[tier] ?: 0.0)
         }
     }
+    fun logView(userId: String, mediaType: String, estimatedSizeBytes: Long, tier: String) {
+        val sizeMB = estimatedSizeBytes / (1024.0 * 1024.0)
+        Log.d("UsageTracker", "👁️ $userId viewed $mediaType ($tier): ${String.format("%.2f", sizeMB)} MB")
+    }
 }
 

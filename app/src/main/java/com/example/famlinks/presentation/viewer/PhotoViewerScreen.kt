@@ -22,6 +22,8 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.famlinks.R
+import com.example.famlinks.data.analytics.UsageTracker
+import com.example.famlinks.util.GuestCredentialsProvider
 import com.example.famlinks.viewmodel.PhotoDisplayMetadata
 import com.example.famlinks.viewmodel.PhotoViewerViewModel
 
@@ -98,6 +100,19 @@ fun PhotoViewerScreen(
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier.fillMaxSize()
                             )
+                            LaunchedEffect(photo.key) {
+                                val estimatedSizeBytes = if (photo.url.contains("cloudfront")) {
+                                    500_000L // Cold compressed
+                                } else {
+                                    3_000_000L // Hot full-res
+                                }
+                                UsageTracker.logView(
+                                    userId = GuestCredentialsProvider.getIdentityId(context),
+                                    mediaType = "photo",
+                                    estimatedSizeBytes = estimatedSizeBytes,
+                                    tier = if (photo.url.contains("cloudfront")) "cold" else "hot"
+                                )
+                            }
                         }
                     }
                 }
