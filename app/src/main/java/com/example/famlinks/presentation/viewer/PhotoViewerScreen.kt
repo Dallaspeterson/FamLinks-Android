@@ -62,12 +62,60 @@ fun PhotoViewerScreen(
             }
     ) {
         currentPhoto?.let { photo ->
+            val context = LocalContext.current
+
+            val correctedKey = photo.key
+                .replace("/preview/", "/cold/")
+                .replace("_thumb.jpg", "_1080p.jpg")
+
+            val coldUrl = remember(correctedKey) {
+                val client = com.example.famlinks.data.remote.s3.AwsS3Client.getClient()
+                val bucket = com.example.famlinks.data.remote.s3.AwsS3Client.getBucketName()
+                val expiration = java.util.Date(System.currentTimeMillis() + 60 * 60 * 1000) // 1 hour
+
+                client?.generatePresignedUrl(
+                    com.amazonaws.services.s3.model.GeneratePresignedUrlRequest(bucket, correctedKey)
+                        .withMethod(com.amazonaws.HttpMethod.GET)
+                        .withExpiration(expiration)
+                )?.toString()
+            }
+
+            var hasLoggedView by remember { mutableStateOf(false) }
+
+            val painter = rememberAsyncImagePainter(
+                model = coil.request.ImageRequest.Builder(context)
+                    .data(coldUrl)
+                    .crossfade(true)
+                    .listener(
+                        onSuccess = { _, _ ->
+                            if (!hasLoggedView) {
+                                try {
+                                    val userId = com.example.famlinks.util.UserIdProvider.getUserId(context)
+                                    photo.sizeBytes?.let {
+                                        com.example.famlinks.data.analytics.UsageTracker.logView(
+                                            userId = userId,
+                                            mediaType = photo.mediaType,
+                                            estimatedSizeBytes = it,
+                                            tier = "cold"
+                                        )
+                                        hasLoggedView = true
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("PhotoViewerScreen", "⚠️ Failed to log view: ${e.localizedMessage}")
+                                }
+                            }
+                        }
+                    )
+                    .build()
+            )
+
             Image(
-                painter = rememberAsyncImagePainter(photo.url),
+                painter = painter,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize()
             )
         }
+
 
         IconButton(
             onClick = onClose,
@@ -91,6 +139,18 @@ fun PhotoViewerScreen(
             val correctedKey = currentPhoto.key
                 .replace("/preview/", "/cold/")
                 .replace("_thumb.jpg", "_1080p.jpg")
+
+            val coldUrl = remember(correctedKey) {
+                val client = com.example.famlinks.data.remote.s3.AwsS3Client.getClient()
+                val bucket = com.example.famlinks.data.remote.s3.AwsS3Client.getBucketName()
+                val expiration = java.util.Date(System.currentTimeMillis() + 60 * 60 * 1000) // 1 hour
+
+                client?.generatePresignedUrl(
+                    com.amazonaws.services.s3.model.GeneratePresignedUrlRequest(bucket, correctedKey)
+                        .withMethod(com.amazonaws.HttpMethod.GET)
+                        .withExpiration(expiration)
+                )?.toString()
+            }
 
             val metadata = metadataMap[correctedKey]
 
