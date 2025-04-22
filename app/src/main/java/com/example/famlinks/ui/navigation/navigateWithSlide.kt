@@ -1,21 +1,27 @@
 // File: ui/navigation/navigateWithSlide.kt
 package com.example.famlinks.ui.navigation
 
-import androidx.navigation.NavController
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+import android.util.Log
+import androidx.navigation.NavHostController
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 
-fun NavController.navigateWithSlide(
+suspend fun NavHostController.navigateWithSlide(
     route: String,
-    scope: CoroutineScope
+    timeoutMillis: Long = 1000L // 1 second max wait
 ) {
-    // Avoid duplicate nav events
-    if (currentDestination?.route == route) return
+    // Wait until graph is set before navigating
+    val graphReady = withTimeoutOrNull(timeoutMillis) {
+        while (this@navigateWithSlide.graph.startDestinationRoute == null) {
+            delay(50)
+        }
+        true
+    }
 
-    // Launch animation with slight delay
-    scope.launch {
-        delay(100) // Optional smoothness delay
-        navigate(route)
+    if (graphReady == true) {
+        Log.d("NavigateWithSlide", "✅ Navigating to $route")
+        this.navigate(route)
+    } else {
+        Log.e("NavigateWithSlide", "❌ Nav graph not ready, can't navigate to $route")
     }
 }

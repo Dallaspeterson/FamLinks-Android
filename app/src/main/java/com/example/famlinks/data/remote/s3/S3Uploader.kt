@@ -3,12 +3,15 @@ package com.example.famlinks.data.remote.s3
 
 import android.content.Context
 import android.util.Log
-import kotlinx.coroutines.launch
 import com.amazonaws.services.s3.model.PutObjectRequest
+import com.amazonaws.services.s3.model.StorageClass
+import com.example.famlinks.data.analytics.UsageTracker
 import com.example.famlinks.data.remote.metadata.DynamoMetadataItem
 import com.example.famlinks.data.remote.metadata.MetadataUploader
-import com.example.famlinks.data.analytics.UsageTracker
 import com.example.famlinks.util.UserIdProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 
 object S3Uploader {
@@ -54,37 +57,30 @@ object S3Uploader {
             val previewKey = "users/$identityId/preview/${thumbnailFile.name}"
 
             // Upload original → Glacier
-            val originalMeta = com.amazonaws.services.s3.model.ObjectMetadata().apply {
-                userMetadata["x-amz-storage-class"] = "GLACIER"
-            }
-            val originalRequest = PutObjectRequest(BUCKET_NAME, originalKey, originalFile).apply {
-                metadata = originalMeta
-            }
+            val originalRequest = PutObjectRequest(BUCKET_NAME, originalKey, originalFile)
+                .withStorageClass(StorageClass.Glacier)
             s3.putObject(originalRequest)
             Log.i("S3Uploader", "✅ Uploaded original to Glacier: $originalKey")
 
-            // Upload 1080p → Cold
-            val coldMeta = com.amazonaws.services.s3.model.ObjectMetadata().apply {
-                userMetadata["x-amz-storage-class"] = "STANDARD_IA"
-            }
-            val coldRequest = PutObjectRequest(BUCKET_NAME, coldKey, coldCompressedFile).apply {
-                metadata = coldMeta
-            }
+            // Upload 1080p → Cold (STANDARD_IA)
+            val coldRequest = PutObjectRequest(BUCKET_NAME, coldKey, coldCompressedFile)
+                .withStorageClass(StorageClass.StandardInfrequentAccess)
             s3.putObject(coldRequest)
             Log.i("S3Uploader", "✅ Uploaded cold version: $coldKey")
 
-            // Upload thumbnail → Cold
-            val previewMeta = com.amazonaws.services.s3.model.ObjectMetadata().apply {
-                userMetadata["x-amz-storage-class"] = "STANDARD_IA"
-            }
-            val previewRequest = PutObjectRequest(BUCKET_NAME, previewKey, thumbnailFile).apply {
-                metadata = previewMeta
-            }
+            // Upload thumbnail → Cold (STANDARD_IA)
+            val previewRequest = PutObjectRequest(BUCKET_NAME, previewKey, thumbnailFile)
+                .withStorageClass(StorageClass.StandardInfrequentAccess)
             s3.putObject(previewRequest)
             Log.i("S3Uploader", "✅ Uploaded thumbnail: $previewKey")
 
-            // Log usage for cost tracking (only cold version matters for view cost)
-            UsageTracker.logUpload(identityId, coldCompressedFile.length(), "photo", "cold")
+            // Log usage for cost tracking (based on 1080p version)
+            UsageTracker.logUpload(
+                userId = identityId,
+                sizeBytes = coldCompressedFile.length(),
+                mediaType = "photo",
+                tier = "cold"
+            )
 
             // Save metadata for cold version only (used in viewer)
             val metadataItem = DynamoMetadataItem().apply {
@@ -97,7 +93,8 @@ object S3Uploader {
                 this.resolution = com.example.famlinks.utils.getImageResolution(coldCompressedFile)
                 this.mediaType = "photo"
             }
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+
+            CoroutineScope(Dispatchers.IO).launch {
                 MetadataUploader.uploadMetadata(context, metadataItem)
             }
 
@@ -108,3 +105,4 @@ object S3Uploader {
         }
     }
 }
+

@@ -15,6 +15,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.famlinks.viewmodel.GalleryViewModel
@@ -26,11 +27,12 @@ import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 
 @Composable
 fun GalleryScreen(
-    navController: NavController,
-    viewModel: PhotoViewerViewModel,
+    navController: NavHostController,
     galleryViewModel: GalleryViewModel,
+    viewModel: PhotoViewerViewModel,
     onPhotoClick: (Int) -> Unit,
-    filterType: PhotoFilterType = PhotoFilterType.ALL
+    filterType: PhotoFilterType = PhotoFilterType.ALL,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val photoList by galleryViewModel.photoList.collectAsState()

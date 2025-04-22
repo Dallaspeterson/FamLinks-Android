@@ -10,7 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 @Composable
-fun PlaceholderGalleryScreen(title: String) {
+fun PlaceholderGalleryScreen(title: String, modifier: Modifier = Modifier) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text = "🚧 $title screen is under construction")
     }

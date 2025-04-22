@@ -15,6 +15,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.famlinks.model.UploadStatus
@@ -24,9 +25,10 @@ import com.example.famlinks.viewmodel.PendingUploadsViewModel
 
 @Composable
 fun PendingUploadsScreen(
-    navController: NavController,
+    navController: NavHostController,
     pendingUploadsViewModel: PendingUploadsViewModel,
-    galleryViewModel: GalleryViewModel
+    galleryViewModel: GalleryViewModel,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val pendingUploads by pendingUploadsViewModel.pendingUploads.collectAsState()

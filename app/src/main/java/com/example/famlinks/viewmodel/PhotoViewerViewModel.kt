@@ -42,30 +42,28 @@ class PhotoViewerViewModel : ViewModel() {
     fun getPhoto(index: Int): S3Photo? = _photoList.value.getOrNull(index)
 
     fun loadMetadata(context: Context, photoKey: String) {
+        val correctedKey = photoKey
+            .replace("/preview/", "/cold/")
+            .replace("_thumb.jpg", "_1080p.jpg")
+
         if (_metadataMap.value.containsKey(photoKey)) {
-            Log.d("PhotoViewerViewModel", "📎 Metadata already loaded for $photoKey")
+            Log.d("PhotoViewerViewModel", "📎 Metadata already loaded for $photoKey (corrected: $correctedKey)")
             return
         }
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                Log.d("PhotoViewerViewModel", "📥 Loading metadata for key: $photoKey")
+                Log.d("PhotoViewerViewModel", "📥 Loading metadata for key: $correctedKey")
 
                 val identityId = GuestCredentialsProvider.getIdentityId(context)
-                val keyObject = DynamoMetadataItem().apply {
-                    this.identityId = identityId
-                    this.photoKey = photoKey
-                }
-
                 val credentials = GuestCredentialsProvider.getCredentialsProvider(context)
                 val dynamoDBClient = AmazonDynamoDBClient(credentials)
                 val mapper = DynamoDBMapper(dynamoDBClient)
 
-                val item = mapper.load(DynamoMetadataItem::class.java, identityId, photoKey)
+                val item = mapper.load(DynamoMetadataItem::class.java, identityId, correctedKey)
 
                 if (item != null) {
                     val dateTaken = item.timestamp?.let { dateFormat.format(Date(it)) } ?: "Unknown Date"
-
                     val location = if (item.latitude != null && item.longitude != null) {
                         "Lat: ${item.latitude}, Lon: ${item.longitude}"
                     } else {
@@ -88,15 +86,18 @@ class PhotoViewerViewModel : ViewModel() {
                         mediaType = item.mediaType?.replaceFirstChar { it.uppercaseChar() } ?: "Photo"
                     )
 
-                    _metadataMap.update { currentMap -> currentMap + (photoKey to metadata) }
+                    // Use original key so viewer screen can match it
+                    _metadataMap.update { currentMap -> currentMap + (correctedKey to metadata) }
 
-                    Log.d("PhotoViewerViewModel", "✅ Metadata loaded for $photoKey")
+                    Log.d("PhotoViewerViewModel", "✅ Metadata loaded for $photoKey (corrected: $correctedKey)")
                 } else {
-                    Log.e("PhotoViewerViewModel", "⚠️ Metadata not found for key: $photoKey")
+                    Log.e("PhotoViewerViewModel", "⚠️ Metadata not found for key: $correctedKey")
                 }
             } catch (e: Exception) {
-                Log.e("PhotoViewerViewModel", "❌ Metadata load failed for $photoKey", e)
+                Log.e("PhotoViewerViewModel", "❌ Metadata load failed for key: $correctedKey", e)
             }
         }
     }
 }
+
+
