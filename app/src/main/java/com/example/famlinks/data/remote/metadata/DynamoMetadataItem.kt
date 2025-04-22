@@ -18,5 +18,14 @@ class DynamoMetadataItem {
 
     @DynamoDBAttribute
     var longitude: Double? = null
+
+    @DynamoDBAttribute
+    var fileSizeBytes: Long? = null
+
+    @DynamoDBAttribute
+    var resolution: String? = null
+
+    @DynamoDBAttribute
+    var mediaType: String? = null
 }
 

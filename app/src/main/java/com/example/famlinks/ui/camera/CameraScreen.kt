@@ -40,12 +40,14 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.coroutines.resume
+import com.example.famlinks.utils.getImageResolution
 
 @Composable
 fun CameraScreen(
     galleryViewModel: GalleryViewModel,
     navController: NavController
 ) {
+
     val context = LocalContext.current
     val fusedLocationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
@@ -204,15 +206,20 @@ fun CameraScreen(
 
                         if (!saved) return@launch
                     }
+                    val fileSize = photoFile.length()
+                    val mediaType = if (photoFile.extension.lowercase() in listOf("mp4", "mov")) "video" else "photo"
+                    val resolution = if (mediaType == "photo") getImageResolution(photoFile) else "N/A"
 
-                    // ✅ Save to pending uploads
                     pendingUploadsViewModel.addItem(
                         PendingUploadItem(
                             file = photoFile,
                             localPath = photoFile.absolutePath,
                             timestamp = timestamp,
                             latitude = currentLocation?.latitude,
-                            longitude = currentLocation?.longitude
+                            longitude = currentLocation?.longitude,
+                            fileSizeBytes = fileSize,
+                            resolution = resolution,
+                            mediaType = mediaType
                         ),
                         context = context
                     )

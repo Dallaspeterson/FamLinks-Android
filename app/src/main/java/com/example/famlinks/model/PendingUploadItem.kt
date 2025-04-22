@@ -15,7 +15,10 @@ data class PendingUploadItem(
     val latitude: Double? = null,
     val longitude: Double? = null,
     val type: UploadType = UploadType.MOMENT,
-    val uploadStatus: UploadStatus = UploadStatus.QUEUED
+    val uploadStatus: UploadStatus = UploadStatus.QUEUED,
+    val fileSizeBytes: Long? = null,
+    val resolution: String? = null,
+    val mediaType: String? = null
 )
 
 enum class UploadType {

@@ -20,7 +20,8 @@ data class PhotoDisplayMetadata(
     val dateTaken: String,
     val fileSize: String,
     val resolution: String,
-    val location: String
+    val location: String,
+    val mediaType: String = "Photo"
 )
 
 class PhotoViewerViewModel : ViewModel() {
@@ -71,11 +72,20 @@ class PhotoViewerViewModel : ViewModel() {
                         "Location Unavailable"
                     }
 
+                    val fileSizeReadable = item.fileSizeBytes?.let { bytes ->
+                        val kb = bytes / 1024.0
+                        if (kb > 1024) String.format("%.2f MB", kb / 1024.0)
+                        else String.format("%.0f KB", kb)
+                    } ?: "Unknown"
+
+                    val resolution = item.resolution ?: "Unknown"
+
                     val metadata = PhotoDisplayMetadata(
                         dateTaken = dateTaken,
-                        fileSize = "Unknown",
-                        resolution = "Unknown",
-                        location = location
+                        fileSize = fileSizeReadable,
+                        resolution = resolution,
+                        location = location,
+                        mediaType = item.mediaType?.replaceFirstChar { it.uppercaseChar() } ?: "Photo"
                     )
 
                     _metadataMap.update { currentMap -> currentMap + (photoKey to metadata) }

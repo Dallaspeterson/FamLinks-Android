@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
+import com.example.famlinks.data.analytics.UsageTracker
 import com.example.famlinks.data.remote.metadata.DynamoMetadataItem
 import com.example.famlinks.data.remote.metadata.MetadataUploader
 import com.example.famlinks.data.remote.s3.S3Uploader
@@ -51,11 +52,21 @@ object UploadManager {
                     val identityId = com.example.famlinks.util.UserIdProvider.getUserId(context)
                     val metadataItem = DynamoMetadataItem().apply {
                         this.identityId = identityId
-                        this.photoKey = "users/$identityId/${file.name}"
+                        this.photoKey = "users/$identityId/${file.name}" // matches your S3 structure
                         this.timestamp = item.timestamp
                         this.latitude = item.latitude
                         this.longitude = item.longitude
+                        this.fileSizeBytes = item.fileSizeBytes
+                        this.resolution = item.resolution
+                        this.mediaType = item.mediaType
                     }
+
+                    UsageTracker.logUpload(
+                        userId = identityId,
+                        sizeBytes = file.length(),
+                        mediaType = "photo", // You can update later to check file type
+                        tier = "hot" // You're uploading to hot storage here
+                    )
 
                     MetadataUploader.uploadMetadata(context, metadataItem)
 

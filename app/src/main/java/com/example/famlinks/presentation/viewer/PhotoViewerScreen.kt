@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -134,6 +133,7 @@ fun PhotoMetadataSheet(metadata: PhotoDisplayMetadata, onDismiss: () -> Unit) {
             InfoRow("📁 File Size", metadata.fileSize)
             InfoRow("📀 Resolution", metadata.resolution)
             InfoRow("📍 Location", metadata.location)
+            InfoRow("🖼️ Type", metadata.mediaType)
         }
     }
 }
