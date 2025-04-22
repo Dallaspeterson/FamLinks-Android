@@ -27,9 +27,9 @@ object S3GalleryLoader {
         val s3 = AwsS3Client.getClient() ?: return@withContext PageResult(emptyList(), null)
         val identityId = UserIdProvider.getUserId(context)
         val bucket = AwsS3Client.getBucketName()
-        val prefix = "users/$identityId/"
+        val prefix = "users/$identityId/preview/"
 
-        Log.d("S3GalleryLoader", "📦 Loading photo page: max=$maxKeys, token=$continuationToken")
+        Log.d("S3GalleryLoader", "📦 Loading preview photo page: max=$maxKeys, token=$continuationToken")
 
         try {
             val request = ListObjectsV2Request()
@@ -49,15 +49,23 @@ object S3GalleryLoader {
                             .withMethod(com.amazonaws.HttpMethod.GET)
                             .withExpiration(expiration)
                     )
-                    S3Photo(key = obj.key, url = presignedUrl.toString()).also {
-                        Log.d("S3GalleryLoader", "🖼️ ${it.key}")
+                    val sizeBytes = obj.size.toLong()
+
+                    S3Photo(
+                        key = obj.key,
+                        url = presignedUrl.toString(),
+                        tier = "preview",
+                        mediaType = "photo",
+                        sizeBytes = sizeBytes
+                    ).also {
+                        Log.d("S3GalleryLoader", "🖼️ ${it.key} (${String.format("%.2f", sizeBytes / 1024.0)} KB)")
                     }
                 }
 
-            Log.d("S3GalleryLoader", "✅ Loaded page: ${photos.size} photos")
+            Log.d("S3GalleryLoader", "✅ Loaded page: ${photos.size} preview images")
 
             return@withContext PageResult(
-                photos = photos.reversed(), // Newest first
+                photos = photos.reversed(), // newest first
                 nextToken = result.nextContinuationToken
             )
         } catch (e: Exception) {
@@ -66,3 +74,4 @@ object S3GalleryLoader {
         }
     }
 }
+

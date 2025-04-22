@@ -4,7 +4,6 @@ package com.example.famlinks.ui.camera
 import android.graphics.Bitmap
 import android.location.Location
 import android.os.Build
-import android.net.Uri
 import android.widget.Toast
 import androidx.camera.core.*
 import androidx.compose.animation.core.animateFloatAsState
@@ -25,13 +24,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.famlinks.viewmodel.CameraViewModel
 import com.example.famlinks.viewmodel.GalleryViewModel
-import com.example.famlinks.viewmodel.PendingUploadsViewModel
-import com.example.famlinks.model.PendingUploadItem
+import com.example.famlinks.utils.correctImageOrientation
+import com.example.famlinks.utils.compressTo1080p
+import com.example.famlinks.utils.generateThumbnail
+import com.example.famlinks.data.remote.s3.S3Uploader
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.*
@@ -40,14 +40,12 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.coroutines.resume
-import com.example.famlinks.utils.getImageResolution
 
 @Composable
 fun CameraScreen(
     galleryViewModel: GalleryViewModel,
     navController: NavController
 ) {
-
     val context = LocalContext.current
     val fusedLocationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
@@ -57,10 +55,8 @@ fun CameraScreen(
     var cameraSessionKey by remember { mutableStateOf(UUID.randomUUID().toString()) }
 
     val cameraViewModel: CameraViewModel = viewModel()
-    val pendingUploadsViewModel: PendingUploadsViewModel = viewModel()
     val lensFacing by cameraViewModel.lensFacing.collectAsState()
     val flashEnabled by cameraViewModel.flashEnabled.collectAsState()
-    val lastPhotoUri by cameraViewModel.lastPhotoUri.collectAsState()
 
     var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
 
@@ -82,18 +78,6 @@ fun CameraScreen(
             flashMode = if (flashEnabled) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
         }
         cameraSessionKey = UUID.randomUUID().toString()
-    }
-
-    fun saveBitmapAsPhoto(bitmap: Bitmap): Uri? {
-        val mediaDir = context.getExternalFilesDir("FamLinks")?.apply { mkdirs() } ?: return null
-        val file = File(
-            mediaDir,
-            SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US).format(System.currentTimeMillis()) + ".jpg"
-        )
-        FileOutputStream(file).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
-        }
-        return file.toUri()
     }
 
     Box(
@@ -170,8 +154,9 @@ fun CameraScreen(
                         }
                         val bitmap = PreviewHolder.captureBitmap()
                         if (bitmap != null) {
+                            val rotated = correctImageOrientation(photoFile, bitmap)
                             FileOutputStream(photoFile).use { out ->
-                                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+                                rotated.compress(Bitmap.CompressFormat.JPEG, 100, out)
                             }
                         } else {
                             Toast.makeText(context, "Capture failed", Toast.LENGTH_SHORT).show()
@@ -206,25 +191,23 @@ fun CameraScreen(
 
                         if (!saved) return@launch
                     }
-                    val fileSize = photoFile.length()
-                    val mediaType = if (photoFile.extension.lowercase() in listOf("mp4", "mov")) "video" else "photo"
-                    val resolution = if (mediaType == "photo") getImageResolution(photoFile) else "N/A"
 
-                    pendingUploadsViewModel.addItem(
-                        PendingUploadItem(
-                            file = photoFile,
-                            localPath = photoFile.absolutePath,
+                    launch(Dispatchers.IO) {
+                        val compressedFile = compressTo1080p(photoFile)
+                        val thumbnailFile = generateThumbnail(photoFile)
+
+                        S3Uploader.uploadMultiTierPhoto(
+                            context = context,
+                            originalFile = photoFile,
+                            coldCompressedFile = compressedFile,
+                            thumbnailFile = thumbnailFile,
                             timestamp = timestamp,
                             latitude = currentLocation?.latitude,
-                            longitude = currentLocation?.longitude,
-                            fileSizeBytes = fileSize,
-                            resolution = resolution,
-                            mediaType = mediaType
-                        ),
-                        context = context
-                    )
+                            longitude = currentLocation?.longitude
+                        )
+                    }
 
-                    Toast.makeText(context, "Photo saved to pending uploads", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Photo saved and processing...", Toast.LENGTH_SHORT).show()
                 }
             }
         ) {

@@ -5,9 +5,6 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
-import com.example.famlinks.data.analytics.UsageTracker
-import com.example.famlinks.data.remote.metadata.DynamoMetadataItem
-import com.example.famlinks.data.remote.metadata.MetadataUploader
 import com.example.famlinks.data.remote.s3.S3Uploader
 import com.example.famlinks.model.UploadStatus
 import com.example.famlinks.viewmodel.PendingUploadsViewModel
@@ -25,8 +22,7 @@ object UploadManager {
         viewModel: PendingUploadsViewModel,
         allowCellular: Boolean,
         galleryViewModel: com.example.famlinks.viewmodel.GalleryViewModel
-    )
-    {
+    ) {
         if (uploadJob?.isActive == true) return // Already uploading
 
         uploadJob = CoroutineScope(Dispatchers.IO).launch {
@@ -47,38 +43,28 @@ object UploadManager {
 
                 viewModel.markAsUploading(item.id)
 
-                val success = S3Uploader.uploadPhoto(context, file)
+                val originalFile = file
+                val compressedFile = File(file.parent, file.nameWithoutExtension + "_1080p.jpg")
+                val thumbnailFile = File(file.parent, file.nameWithoutExtension + "_thumb.jpg")
+
+                val success = S3Uploader.uploadMultiTierPhoto(
+                    context = context,
+                    originalFile = originalFile,
+                    coldCompressedFile = compressedFile,
+                    thumbnailFile = thumbnailFile,
+                    timestamp = item.timestamp,
+                    latitude = item.latitude,
+                    longitude = item.longitude
+                )
+
                 if (success) {
-                    val identityId = com.example.famlinks.util.UserIdProvider.getUserId(context)
-                    val metadataItem = DynamoMetadataItem().apply {
-                        this.identityId = identityId
-                        this.photoKey = "users/$identityId/${file.name}" // matches your S3 structure
-                        this.timestamp = item.timestamp
-                        this.latitude = item.latitude
-                        this.longitude = item.longitude
-                        this.fileSizeBytes = item.fileSizeBytes
-                        this.resolution = item.resolution
-                        this.mediaType = item.mediaType
-                    }
-
-                    UsageTracker.logUpload(
-                        userId = identityId,
-                        sizeBytes = file.length(),
-                        mediaType = "photo", // You can update later to check file type
-                        tier = "hot" // You're uploading to hot storage here
-                    )
-
-                    MetadataUploader.uploadMetadata(context, metadataItem)
-
                     viewModel.markAsUploaded(item.id)
                     viewModel.removeItem(item.id, context)
-
-                    galleryViewModel.markAsStale() // 👈 NEW: allow refresh
-
-                    Log.i("UploadManager", "✅ Uploaded to S3: ${file.name}")
+                    galleryViewModel.markAsStale()
+                    Log.i("UploadManager", "✅ Uploaded all versions for ${file.name}")
                 } else {
                     viewModel.markAsFailed(item.id)
-                    Log.e("UploadManager", "❌ Upload failed: ${file.name}")
+                    Log.e("UploadManager", "❌ Upload failed for ${file.name}")
                 }
             }
         }
@@ -96,5 +82,6 @@ object UploadManager {
         }
     }
 }
+
 
 
