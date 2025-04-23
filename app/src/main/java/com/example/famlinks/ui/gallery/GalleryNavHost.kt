@@ -13,6 +13,7 @@ import com.example.famlinks.viewmodel.PhotoViewerViewModel
 import com.example.famlinks.presentation.viewer.PhotoViewerScreen
 import com.example.famlinks.ui.viewer.PhotoViewerUiState
 import com.example.famlinks.viewmodel.PendingUploadsViewModel
+import com.example.famlinks.model.PhotoFilterType
 
 @Composable
 fun GalleryNavHost(
@@ -38,9 +39,8 @@ fun GalleryNavHost(
         startDestination = "blank",
         modifier = modifier
     ) {
-        // 🟢 ✅ This is REQUIRED or your app will crash.
         composable("blank") {
-            // This is intentionally blank.
+            // This is intentionally blank to prevent crash on startup.
         }
 
         composable("allPhotos") {
@@ -48,7 +48,7 @@ fun GalleryNavHost(
                 navController = navController,
                 galleryViewModel = galleryViewModel,
                 viewModel = photoViewerViewModel,
-                filterType = com.example.famlinks.model.PhotoFilterType.ALL,
+                filterType = PhotoFilterType.ALL,
                 onPhotoClick = { index ->
                     photoViewerViewModel.setPhotos(photoViewerViewModel.photoList.value)
                     setPhotoViewerUiState(
@@ -67,12 +67,17 @@ fun GalleryNavHost(
             )
         }
 
-        composable("moments") {
-            PlaceholderGalleryScreen("Moments", modifier = Modifier.fillMaxSize())
+        // New core categories
+        composable("singles") {
+            PlaceholderGalleryScreen("Singles", modifier = Modifier.fillMaxSize())
         }
 
-        composable("memories") {
-            PlaceholderGalleryScreen("Memories", modifier = Modifier.fillMaxSize())
+        composable("albums") {
+            PlaceholderGalleryScreen("Albums", modifier = Modifier.fillMaxSize())
+        }
+
+        composable("collections") {
+            PlaceholderGalleryScreen("Collections", modifier = Modifier.fillMaxSize())
         }
 
         composable("portals") {
@@ -91,6 +96,7 @@ fun GalleryNavHost(
         )
     }
 }
+
 
 
 

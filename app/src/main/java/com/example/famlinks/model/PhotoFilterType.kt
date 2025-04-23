@@ -3,7 +3,8 @@ package com.example.famlinks.model
 
 enum class PhotoFilterType {
     ALL,
-    MOMENTS,
-    MEMORIES,
+    SINGLES,
+    ALBUMS,
+    COLLECTIONS,
     PORTALS
 }

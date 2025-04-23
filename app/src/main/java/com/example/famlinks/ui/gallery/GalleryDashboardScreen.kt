@@ -19,24 +19,30 @@ fun GalleryDashboardScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Text(
-            text = "📸 Your Photo Hub",
+            text = "📸 Your Gallery",
             style = MaterialTheme.typography.headlineMedium
         )
 
-        Button(onClick = { navigateTo("moments") }) {
-            Text("📷 Moments")
+        Button(onClick = { navigateTo("singles") }) {
+            Text("📂 Singles")
         }
 
-        Button(onClick = { navigateTo("memories") }) {
-            Text("🖼️ Memories")
+        Button(onClick = { navigateTo("albums") }) {
+            Text("🖼️ Albums")
+        }
+
+        Button(onClick = { navigateTo("collections") }) {
+            Text("🏷️ Collections")
         }
 
         Button(onClick = { navigateTo("portals") }) {
             Text("🌀 Portals")
         }
 
+        Divider()
+
         Button(onClick = { navigateTo("allPhotos") }) {
-            Text("📂 All Photos")
+            Text("🗃️ All Photos")
         }
 
         Button(onClick = { navigateTo("pendingUploads") }) {
