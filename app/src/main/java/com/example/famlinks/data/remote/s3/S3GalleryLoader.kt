@@ -6,6 +6,7 @@ import android.util.Log
 import com.amazonaws.services.s3.model.ListObjectsV2Request
 import com.amazonaws.services.s3.model.S3ObjectSummary
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest
+import com.example.famlinks.data.remote.metadata.DynamoDbPhotoMetadataFetcher
 import com.example.famlinks.util.UserIdProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -42,7 +43,7 @@ object S3GalleryLoader {
 
             val photos = result.objectSummaries
                 .filter { it.key.endsWith(".jpg", ignoreCase = true) && !it.key.endsWith(".keep") }
-                .map { obj ->
+                .mapNotNull { obj ->
                     val expiration = Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1))
                     val presignedUrl = s3.generatePresignedUrl(
                         GeneratePresignedUrlRequest(bucket, obj.key)
@@ -51,18 +52,31 @@ object S3GalleryLoader {
                     )
                     val sizeBytes = obj.size.toLong()
 
+                    // 🧠 Lookup metadata in DynamoDB
+                    val metadata = DynamoDbPhotoMetadataFetcher.getMetadataForKey(context, obj.key)
+                    if (metadata == null) {
+                        Log.w("S3GalleryLoader", "⚠️ No metadata found for ${obj.key}")
+                        return@mapNotNull null
+                    }
+
                     S3Photo(
                         key = obj.key,
                         url = presignedUrl.toString(),
                         tier = "preview",
-                        mediaType = "photo",
-                        sizeBytes = sizeBytes
+                        mediaType = metadata.mediaType ?: "photo",
+                        resolution = metadata.resolution,
+                        sizeBytes = sizeBytes,
+                        isSingle = metadata.isSingle,
+                        albumId = metadata.albumId,
+                        portalId = metadata.portalId,
+                        collectionIds = metadata.collectionIds ?: emptyList(),
+                        visibility = Visibility.valueOf(metadata.visibility ?: "PRIVATE"),
+                        sharedWith = metadata.sharedWith ?: emptyList(),
+                        ownerId = metadata.ownerId ?: identityId
                     ).also {
-                        Log.d("S3GalleryLoader", "🖼️ ${it.key} (${String.format("%.2f", sizeBytes / 1024.0)} KB)")
+                        Log.d("S3GalleryLoader", "🖼️ Loaded ${it.key} (${String.format("%.2f", sizeBytes / 1024.0)} KB)")
                     }
                 }
-
-            Log.d("S3GalleryLoader", "✅ Loaded page: ${photos.size} preview images")
 
             return@withContext PageResult(
                 photos = photos.reversed(), // newest first

@@ -65,12 +65,19 @@ class GalleryViewModel : ViewModel() {
     }
 
     private fun applyFilter(photos: List<S3Photo>, filter: PhotoFilterType): List<S3Photo> {
-        return when (filter) {
-            PhotoFilterType.ALL -> photos
-            PhotoFilterType.MOMENTS -> photos.filter { it.key.contains("moment") }
-            PhotoFilterType.MEMORIES -> photos.filter { it.key.contains("memory") }
-            PhotoFilterType.PORTALS -> photos.filter { it.key.contains("portal") }
+        return photos.filter { photo ->
+            when (filter) {
+                PhotoFilterType.ALL -> true
+                PhotoFilterType.SINGLES -> photo.isSingle
+                PhotoFilterType.ALBUMS -> photo.albumId != null
+                PhotoFilterType.COLLECTIONS -> photo.collectionIds.isNotEmpty()
+                PhotoFilterType.PORTALS -> photo.portalId != null
+            }
         }
+    }
+
+    fun getFilteredPhotoList(filter: PhotoFilterType): List<S3Photo> {
+        return applyFilter(_photoList.value, filter)
     }
 
     fun isLoaded(): Boolean = isInitialized

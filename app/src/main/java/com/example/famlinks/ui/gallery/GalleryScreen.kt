@@ -35,7 +35,10 @@ fun GalleryScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val photoList by galleryViewModel.photoList.collectAsState()
+    val rawPhotos by galleryViewModel.photoList.collectAsState()
+    val photoList = remember(rawPhotos, filterType) {
+        galleryViewModel.getFilteredPhotoList(filterType)
+    }
     val gridState = rememberLazyGridState()
 
     var refreshing by remember { mutableStateOf(false) }

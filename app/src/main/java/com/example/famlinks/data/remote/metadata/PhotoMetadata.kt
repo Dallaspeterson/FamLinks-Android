@@ -1,3 +1,4 @@
+//File: data/remote/metadata/PhotoMetadata.kt
 package com.example.famlinks.data.remote.metadata
 
 data class PhotoMetadata(
