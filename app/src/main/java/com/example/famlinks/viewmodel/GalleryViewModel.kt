@@ -24,13 +24,17 @@ class GalleryViewModel : ViewModel() {
     private var isEndOfList = false
     private var isInitialized = false
 
+    private var currentFilter: PhotoFilterType = PhotoFilterType.ALL
+
     fun loadNextPage(
         context: Context,
-        filter: PhotoFilterType = PhotoFilterType.ALL,
+        filter: PhotoFilterType = currentFilter,
         pageSize: Int = 50,
         onComplete: () -> Unit = {}
     ) {
         if (isLoading || isEndOfList) return
+
+        currentFilter = filter
 
         viewModelScope.launch {
             isLoading = true
@@ -51,7 +55,7 @@ class GalleryViewModel : ViewModel() {
                     Log.d("GalleryViewModel", "📷 Loaded ${page.photos.size} photos")
                     val newItems = page.photos.filter { it.key !in allPhotos.map { p -> p.key } }
                     allPhotos.addAll(newItems)
-                    _photoList.value = applyFilter(allPhotos, filter)
+                    _photoList.value = applyFilter(allPhotos, currentFilter)
                 }
 
                 isInitialized = true
@@ -62,6 +66,29 @@ class GalleryViewModel : ViewModel() {
                 onComplete()
             }
         }
+    }
+
+    fun refresh(context: Context, filter: PhotoFilterType = currentFilter, onComplete: () -> Unit = {}) {
+        continuationToken = null
+        isEndOfList = false
+        isInitialized = false
+        allPhotos.clear()
+        _photoList.value = emptyList()
+        loadNextPage(context, filter, onComplete = onComplete)
+    }
+
+    fun isLoaded(): Boolean = isInitialized
+
+    fun markAsStale() {
+        continuationToken = null
+        isEndOfList = false
+        isInitialized = false
+        allPhotos.clear()
+        _photoList.value = emptyList()
+    }
+
+    fun getFilteredPhotoList(filter: PhotoFilterType): List<S3Photo> {
+        return applyFilter(_photoList.value, filter)
     }
 
     private fun applyFilter(photos: List<S3Photo>, filter: PhotoFilterType): List<S3Photo> {
@@ -75,19 +102,7 @@ class GalleryViewModel : ViewModel() {
             }
         }
     }
-
-    fun getFilteredPhotoList(filter: PhotoFilterType): List<S3Photo> {
-        return applyFilter(_photoList.value, filter)
-    }
-
-    fun isLoaded(): Boolean = isInitialized
-    fun markAsStale() {
-        continuationToken = null
-        isEndOfList = false
-        isInitialized = false
-        allPhotos.clear()
-        _photoList.value = emptyList()
-    }
 }
+
 
 

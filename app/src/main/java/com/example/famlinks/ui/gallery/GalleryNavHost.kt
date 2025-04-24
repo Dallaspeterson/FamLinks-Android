@@ -8,12 +8,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.example.famlinks.viewmodel.GalleryViewModel
-import com.example.famlinks.viewmodel.PhotoViewerViewModel
+import com.example.famlinks.model.PhotoFilterType
 import com.example.famlinks.presentation.viewer.PhotoViewerScreen
 import com.example.famlinks.ui.viewer.PhotoViewerUiState
+import com.example.famlinks.viewmodel.GalleryViewModel
 import com.example.famlinks.viewmodel.PendingUploadsViewModel
-import com.example.famlinks.model.PhotoFilterType
+import com.example.famlinks.viewmodel.PhotoViewerViewModel
 
 @Composable
 fun GalleryNavHost(
@@ -27,7 +27,6 @@ fun GalleryNavHost(
 ) {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
 
-    // Close viewer if returning to dashboard
     LaunchedEffect(currentBackStackEntry?.destination?.route) {
         if (currentBackStackEntry?.destination?.route == "blank") {
             setPhotoViewerUiState(photoViewerUiState.copy(isVisible = false))
@@ -39,20 +38,23 @@ fun GalleryNavHost(
         startDestination = "blank",
         modifier = modifier
     ) {
-        composable("blank") {
-            // This is intentionally blank to prevent crash on startup.
-        }
+        composable("blank") {}
 
         composable("allPhotos") {
-            GalleryScreen(
+            DynamicGalleryScreen(
                 navController = navController,
                 galleryViewModel = galleryViewModel,
-                viewModel = photoViewerViewModel,
+                photoViewerViewModel = photoViewerViewModel,
                 filterType = PhotoFilterType.ALL,
                 onPhotoClick = { index ->
-                    photoViewerViewModel.setPhotos(photoViewerViewModel.photoList.value)
+                    val list = photoViewerViewModel.photoList.value
+                    photoViewerViewModel.setPhotos(list)
                     setPhotoViewerUiState(
-                        PhotoViewerUiState(isVisible = true, initialIndex = index)
+                        PhotoViewerUiState(
+                            isVisible = true,
+                            photoList = list,
+                            initialIndex = index
+                        )
                     )
                 }
             )
@@ -67,21 +69,84 @@ fun GalleryNavHost(
             )
         }
 
-        // New core categories
         composable("singles") {
-            PlaceholderGalleryScreen("Singles", modifier = Modifier.fillMaxSize())
+            DynamicGalleryScreen(
+                navController = navController,
+                galleryViewModel = galleryViewModel,
+                photoViewerViewModel = photoViewerViewModel,
+                filterType = PhotoFilterType.SINGLES,
+                onPhotoClick = { index ->
+                    val list = photoViewerViewModel.photoList.value
+                    photoViewerViewModel.setPhotos(list)
+                    setPhotoViewerUiState(
+                        PhotoViewerUiState(
+                            isVisible = true,
+                            photoList = list,
+                            initialIndex = index
+                        )
+                    )
+                }
+            )
         }
 
         composable("albums") {
-            PlaceholderGalleryScreen("Albums", modifier = Modifier.fillMaxSize())
+            DynamicGalleryScreen(
+                navController = navController,
+                galleryViewModel = galleryViewModel,
+                photoViewerViewModel = photoViewerViewModel,
+                filterType = PhotoFilterType.ALBUMS,
+                onPhotoClick = { index ->
+                    val list = photoViewerViewModel.photoList.value
+                    photoViewerViewModel.setPhotos(list)
+                    setPhotoViewerUiState(
+                        PhotoViewerUiState(
+                            isVisible = true,
+                            photoList = list,
+                            initialIndex = index
+                        )
+                    )
+                }
+            )
         }
 
         composable("collections") {
-            PlaceholderGalleryScreen("Collections", modifier = Modifier.fillMaxSize())
+            DynamicGalleryScreen(
+                navController = navController,
+                galleryViewModel = galleryViewModel,
+                photoViewerViewModel = photoViewerViewModel,
+                filterType = PhotoFilterType.COLLECTIONS,
+                onPhotoClick = { index ->
+                    val list = photoViewerViewModel.photoList.value
+                    photoViewerViewModel.setPhotos(list)
+                    setPhotoViewerUiState(
+                        PhotoViewerUiState(
+                            isVisible = true,
+                            photoList = list,
+                            initialIndex = index
+                        )
+                    )
+                }
+            )
         }
 
         composable("portals") {
-            PlaceholderGalleryScreen("Portals", modifier = Modifier.fillMaxSize())
+            DynamicGalleryScreen(
+                navController = navController,
+                galleryViewModel = galleryViewModel,
+                photoViewerViewModel = photoViewerViewModel,
+                filterType = PhotoFilterType.PORTALS,
+                onPhotoClick = { index ->
+                    val list = photoViewerViewModel.photoList.value
+                    photoViewerViewModel.setPhotos(list)
+                    setPhotoViewerUiState(
+                        PhotoViewerUiState(
+                            isVisible = true,
+                            photoList = list,
+                            initialIndex = index
+                        )
+                    )
+                }
+            )
         }
     }
 
@@ -96,6 +161,8 @@ fun GalleryNavHost(
         )
     }
 }
+
+
 
 
 

@@ -53,7 +53,11 @@ object S3GalleryLoader {
                     val sizeBytes = obj.size.toLong()
 
                     // 🧠 Lookup metadata in DynamoDB
-                    val metadata = DynamoDbPhotoMetadataFetcher.getMetadataForKey(context, obj.key)
+                    val coldKey = obj.key
+                        .replace("/preview/", "/cold/")
+                        .replace("_thumb.jpg", "_1080p.jpg")
+
+                    val metadata = DynamoDbPhotoMetadataFetcher.getMetadataForKey(context, coldKey)
                     if (metadata == null) {
                         Log.w("S3GalleryLoader", "⚠️ No metadata found for ${obj.key}")
                         return@mapNotNull null

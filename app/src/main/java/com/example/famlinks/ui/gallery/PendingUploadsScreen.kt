@@ -3,7 +3,6 @@ package com.example.famlinks.ui.gallery
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.material3.*
@@ -14,7 +13,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -32,7 +30,9 @@ fun PendingUploadsScreen(
 ) {
     val context = LocalContext.current
     val pendingUploads by pendingUploadsViewModel.pendingUploads.collectAsState()
+    val wifiOnly = remember { mutableStateOf(AppPreferences.isWifiOnlyUploadsEnabled(context)) }
 
+    // 🔁 Initial Load + Upload Trigger
     LaunchedEffect(Unit) {
         pendingUploadsViewModel.loadFromDisk(context)
 
@@ -46,31 +46,32 @@ fun PendingUploadsScreen(
     }
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(8.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "\uD83D\uDCE4 Pending Uploads",
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(8.dp)
+                text = "📤 Pending Uploads",
+                style = MaterialTheme.typography.headlineSmall
             )
-
-            // Toggle Wi-Fi-only uploads (keep this if you already had it)
-            val wifiOnly = remember { mutableStateOf(AppPreferences.isWifiOnlyUploadsEnabled(context)) }
-            Text("wifi only")
-            Switch(
-                checked = wifiOnly.value,
-                onCheckedChange = {
-                    wifiOnly.value = it
-                    AppPreferences.setWifiOnlyUploadsEnabled(context, it)
-                }
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Wi-Fi only", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.width(8.dp))
+                Switch(
+                    checked = wifiOnly.value,
+                    onCheckedChange = {
+                        wifiOnly.value = it
+                        AppPreferences.setWifiOnlyUploadsEnabled(context, it)
+                    }
+                )
+            }
         }
 
         LazyVerticalGrid(
@@ -98,7 +99,6 @@ fun PendingUploadsScreen(
                         modifier = Modifier.fillMaxSize()
                     )
 
-                    // 👇 Upload progress overlay
                     if (item.uploadStatus == UploadStatus.UPLOADING) {
                         Box(
                             modifier = Modifier

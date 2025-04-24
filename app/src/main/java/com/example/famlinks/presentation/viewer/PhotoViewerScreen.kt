@@ -62,22 +62,8 @@ fun PhotoViewerScreen(
             }
     ) {
         currentPhoto?.let { photo ->
-            val context = LocalContext.current
-
-            val correctedKey = photo.key
-                .replace("/preview/", "/cold/")
-                .replace("_thumb.jpg", "_1080p.jpg")
-
-            val coldUrl = remember(correctedKey) {
-                val client = com.example.famlinks.data.remote.s3.AwsS3Client.getClient()
-                val bucket = com.example.famlinks.data.remote.s3.AwsS3Client.getBucketName()
-                val expiration = java.util.Date(System.currentTimeMillis() + 60 * 60 * 1000) // 1 hour
-
-                client?.generatePresignedUrl(
-                    com.amazonaws.services.s3.model.GeneratePresignedUrlRequest(bucket, correctedKey)
-                        .withMethod(com.amazonaws.HttpMethod.GET)
-                        .withExpiration(expiration)
-                )?.toString()
+            val coldUrl = remember(currentPhoto.key) {
+                generateColdUrl(currentPhoto.key, context)
             }
 
             var hasLoggedView by remember { mutableStateOf(false) }
@@ -109,6 +95,14 @@ fun PhotoViewerScreen(
                     .build()
             )
 
+            val isLoading = painter.state is coil.compose.AsyncImagePainter.State.Loading
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = Color.White
+                )
+            }
+
             Image(
                 painter = painter,
                 contentDescription = null,
@@ -116,8 +110,7 @@ fun PhotoViewerScreen(
             )
         }
 
-
-        IconButton(
+    IconButton(
             onClick = onClose,
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -140,17 +133,10 @@ fun PhotoViewerScreen(
                 .replace("/preview/", "/cold/")
                 .replace("_thumb.jpg", "_1080p.jpg")
 
-            val coldUrl = remember(correctedKey) {
-                val client = com.example.famlinks.data.remote.s3.AwsS3Client.getClient()
-                val bucket = com.example.famlinks.data.remote.s3.AwsS3Client.getBucketName()
-                val expiration = java.util.Date(System.currentTimeMillis() + 60 * 60 * 1000) // 1 hour
-
-                client?.generatePresignedUrl(
-                    com.amazonaws.services.s3.model.GeneratePresignedUrlRequest(bucket, correctedKey)
-                        .withMethod(com.amazonaws.HttpMethod.GET)
-                        .withExpiration(expiration)
-                )?.toString()
+            val coldUrl = remember(currentPhoto.key) {
+                generateColdUrl(currentPhoto.key, context)
             }
+
 
             val metadata = metadataMap[correctedKey]
 
@@ -183,4 +169,17 @@ fun PhotoViewerScreen(
         }
     }
 }
+fun generateColdUrl(key: String, context: android.content.Context): String? {
+    val correctedKey = key
+        .replace("/preview/", "/cold/")
+        .replace("_thumb.jpg", "_1080p.jpg")
+    val client = com.example.famlinks.data.remote.s3.AwsS3Client.getClient()
+    val bucket = com.example.famlinks.data.remote.s3.AwsS3Client.getBucketName()
+    val expiration = java.util.Date(System.currentTimeMillis() + 60 * 60 * 1000) // 1 hour
 
+    return client?.generatePresignedUrl(
+        com.amazonaws.services.s3.model.GeneratePresignedUrlRequest(bucket, correctedKey)
+            .withMethod(com.amazonaws.HttpMethod.GET)
+            .withExpiration(expiration)
+    )?.toString()
+}

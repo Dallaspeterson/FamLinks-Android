@@ -16,37 +16,36 @@ fun GalleryDashboardScreen(
         modifier = modifier
             .fillMaxSize()
             .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
             text = "📸 Your Gallery",
             style = MaterialTheme.typography.headlineMedium
         )
 
-        Button(onClick = { navigateTo("singles") }) {
-            Text("📂 Singles")
-        }
+        Spacer(modifier = Modifier.height(8.dp))
 
-        Button(onClick = { navigateTo("albums") }) {
-            Text("🖼️ Albums")
-        }
+        // Core categories
+        GalleryNavButton("📂 Singles") { navigateTo("singles") }
+        GalleryNavButton("🖼️ Albums") { navigateTo("albums") }
+        GalleryNavButton("🏷️ Collections") { navigateTo("collections") }
+        GalleryNavButton("🌀 Portals") { navigateTo("portals") }
 
-        Button(onClick = { navigateTo("collections") }) {
-            Text("🏷️ Collections")
-        }
+        Divider(modifier = Modifier.padding(vertical = 16.dp))
 
-        Button(onClick = { navigateTo("portals") }) {
-            Text("🌀 Portals")
-        }
-
-        Divider()
-
-        Button(onClick = { navigateTo("allPhotos") }) {
-            Text("🗃️ All Photos")
-        }
-
-        Button(onClick = { navigateTo("pendingUploads") }) {
-            Text("📤 Upload Queue")
-        }
+        // Utility sections
+        GalleryNavButton("🗃️ All Photos") { navigateTo("allPhotos") }
+        GalleryNavButton("📤 Upload Queue") { navigateTo("pendingUploads") }
     }
 }
+
+@Composable
+private fun GalleryNavButton(label: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(label)
+    }
+}
+
